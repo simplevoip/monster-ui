@@ -1185,7 +1185,10 @@ define(function(require) {
 		if (!_.isPlainObject(number)) {
 			throw new TypeError('"number" is not an object');
 		}
-		var numberFeatures = _.get(number, 'features_available', []);
+		var numberFeatures = _.get(number, '_read_only.features.available', []);
+		if (_.isEmpty(numberFeatures)) {
+			numberFeatures = _.get(number, 'features_available', []);
+		}		
 		return _.isEmpty(numberFeatures)
 			? _.get(number, '_read_only.features_available', [])
 			: numberFeatures;
