@@ -144,6 +144,8 @@ require([
 		monster.util = util;
 		monster.webphone = webphone;
 
+		routing.init();
+
 		monster.loadBuildConfig(function() {
 			monster.apps.load('core', function(app) {
 				app.render($('.core-wrapper'));
