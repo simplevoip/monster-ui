@@ -1243,8 +1243,14 @@ define(function(require) {
 					numbersByLosingCarrier: _
 						.chain(numbersByLosingCarrier)
 						.map(function(carrierNumberGroup) {
+							var carrierName = carrierNumberGroup.carrier,
+								lastColonIndex = _.lastIndexOf(carrierName, ':'),
+								carrierLabel = lastColonIndex > 0
+									? carrierName.substring(0, lastColonIndex)
+									: carrierName;
+
 							return {
-								carrier: carrierNumberGroup.carrier,
+								carrier: carrierLabel,
 								numbers: _.map(carrierNumberGroup.numbers, 'e164Number')
 							};
 						})
