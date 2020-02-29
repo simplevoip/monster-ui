@@ -83,17 +83,25 @@ define(function(require) {
 				},
 				minTargetDateBusinessDays: 4,
 				requirements: {
-					LOA: 'form.pdf',
-					CountryInfo: 'country_info.pdf',
-					Bill: 'bill.pdf',
-					AccountNum: 'account_number.pdf',
-					TaxID: 'tax_id.pdf',
-					CustomerID: 'customer_id.pdf',
-					LegalAuth: 'legal_auth.pdf',
-					LocalAddr: 'local_address.pdf',
-					ServiceAddr: 'service_address.pdf',
-					ReleaseLetter: 'release_letter.pdf',
-					PaymentProof: 'payment_proof.pdf'
+					documents: {
+						LOA: 'form.pdf',
+						CountryInfo: 'country_info.pdf',
+						Bill: 'bill.pdf',
+						AccountNum: 'account_number.pdf',
+						TaxID: 'tax_id.pdf',
+						CustomerID: 'customer_id.pdf',
+						LegalAuth: 'legal_auth.pdf',
+						LocalAddr: 'local_address.pdf',
+						ServiceAddr: 'service_address.pdf',
+						ReleaseLetter: 'release_letter.pdf',
+						PaymentProof: 'payment_proof.pdf'
+					},
+					fields: {
+
+					},
+					rules: {
+
+					}
 				},
 				requirementsByCountries: {
 					AT: {
@@ -3001,7 +3009,7 @@ define(function(require) {
 		portWizardRequestPhoneNumbersLookup: function(args) {
 			var self = this;
 
-			monster.request({
+			/*monster.request({
 				resource: 'phonebook.lookupNumbers',
 				data: {
 					data: {
@@ -3015,6 +3023,751 @@ define(function(require) {
 					args.error({
 						isPhonebookUnavailable: _.includes([0, 500], error.status)
 					});
+				}
+			});*/
+			args.success({
+				numbers: {
+					'+14109255100': {
+						'losing_carrier': {
+							'name': 'SprintX:Y'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							/*{
+								'name': 'Verizon',
+								'portability': true
+							},*/
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255101': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255102': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255103': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255104': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255105': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255106': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255107': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255108': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255109': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255110': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255111': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255112': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255113': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255114': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255115': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255116': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255117': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255118': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255119': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255120': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255121': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255122': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255123': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255124': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255125': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255126': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255127': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255128': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255129': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255130': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255131': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255132': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255133': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255134': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255135': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255136': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255137': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': false
+							}
+						]
+					},
+					'+14158867988': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': false
+							}
+						]
+					}
 				}
 			});
 		},
