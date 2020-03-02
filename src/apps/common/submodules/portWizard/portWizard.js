@@ -85,22 +85,85 @@ define(function(require) {
 				requirements: {
 					documents: {
 						LOA: 'form.pdf',
-						CountryInfo: 'country_info.pdf',
 						Bill: 'bill.pdf',
-						AccountNum: 'account_number.pdf',
-						TaxID: 'tax_id.pdf',
-						CustomerID: 'customer_id.pdf',
 						LegalAuth: 'legal_auth.pdf',
-						LocalAddr: 'local_address.pdf',
-						ServiceAddr: 'service_address.pdf',
 						ReleaseLetter: 'release_letter.pdf',
 						PaymentProof: 'payment_proof.pdf'
 					},
 					fields: {
-
+						CountryInfo: [
+							{
+								name: 'serviceAddress.countryInfo',
+								step: 'ownershipConfirmation',
+								section: 'serviceAddress',
+								type: 'text'
+							}
+						],
+						CustomerID: [
+							{
+								name: 'accountOwnership.customerId',
+								step: 'ownershipConfirmation',
+								section: 'accountOwnership',
+								type: 'text'
+							}
+						],
+						TaxID: [
+							{
+								name: 'accountOwnership.taxId',
+								step: 'ownershipConfirmation',
+								section: 'accountOwnership',
+								type: 'text'
+							}
+						],
+						LOA: [
+							{
+								name: 'loaSignee',
+								step: 'requiredDocuments',
+								section: 'default',
+								type: 'text'
+							},
+							{
+								name: 'loaSigningDate',
+								step: 'requiredDocuments',
+								section: 'default',
+								type: 'date'
+							}
+						]
 					},
 					rules: {
-
+						AccountNum: [
+							{
+								name: 'accountInfo.accountNumber',
+								step: 'ownershipConfirmation',
+								required: true
+							}
+						],
+						LocalAddr: [
+							{
+								name: 'serviceAddress.locality',
+								step: 'ownershipConfirmation',
+								equalTo: '[name="numbers.city"]'
+							}
+						],
+						ServiceAddr: [
+							{
+								name: 'serviceAddress.country',
+								step: 'ownershipConfirmation',
+								equalTo: '[name="numbers.country"]'
+							}
+						],
+						LOA: [
+							{
+								name: 'loaSignee',
+								step: 'requiredDocuments',
+								required: true
+							},
+							{
+								name: 'loaSigningDate',
+								step: 'requiredDocuments',
+								required: true
+							}
+						]
 					}
 				},
 				requirementsByCountries: {
@@ -501,7 +564,7 @@ define(function(require) {
 				},
 				function checkRequiredDocuments($container, wizardPortRequestData, wizardStepId, waterfallCallback) {
 					// Check required documents, and modify wizard step if needed
-					var requiredDocumentsCompleteList = self.portWizardGet('requiredDocumentsList'),
+					var requiredDocumentsCompleteList = self.portWizardGet('requirements.documentsList'),
 						requiredDocumentsMap = _.keyBy(requiredDocumentsCompleteList, 'key'),
 						isBillRequired = _.has(requiredDocumentsMap, 'Bill'),
 						isBillAttached = _.has(wizardPortRequestData, 'ownershipConfirmation.latestBill.file'),
@@ -580,8 +643,7 @@ define(function(require) {
 		 */
 		portWizardGetPortRequestData: function(args) {
 			var self = this,
-				portRequestId = args.portRequestId,
-				requiredDocuments = self.appFlags.portWizard.requirements;
+				portRequestId = args.portRequestId;
 
 			monster.waterfall([
 				function(waterfallCallback) {
@@ -599,8 +661,6 @@ define(function(require) {
 				},
 				function(portRequest, waterfallCallback) {
 					monster.parallel(_.mapValues(portRequest.uploads, function(attachmentData, attachmentName) {
-						var documentMetadata = _.find(requiredDocuments, { attachmentName: attachmentName });
-
 						return function(parallelCallback) {
 							self.portWizardRequestGetAttachment({
 								data: {
@@ -611,7 +671,7 @@ define(function(require) {
 								success: function(fileData) {
 									var data = _.merge({
 										file: fileData
-									}, documentMetadata, attachmentData);
+									}, attachmentData);
 
 									parallelCallback(null, data);
 								},
@@ -621,7 +681,7 @@ define(function(require) {
 											? 'attachmentNotFound'
 											: 'attachmentDownloadFailed',
 										error: parsedError
-									}, documentMetadata, attachmentData);
+									}, attachmentData);
 
 									parallelCallback(null, data);
 								}
@@ -656,7 +716,7 @@ define(function(require) {
 			var self = this,
 				portWizardAppFlags = self.appFlags.portWizard,
 				minTargetDateBusinessDays = portWizardAppFlags.minTargetDateBusinessDays,
-				allRequiredDocuments = portWizardAppFlags.requirements,
+				allRequiredDocuments = portWizardAppFlags.requirements.documents,
 				billAttachmentName = allRequiredDocuments.Bill,
 				formattedPhoneNumbers = args.formattedNumbers,
 				numbersTypeValidationResult = args.numbersTypeValidationResult,
@@ -671,7 +731,7 @@ define(function(require) {
 					required: false
 				},
 				allRequiredDocumentsByAttachmentName = _.invert(allRequiredDocuments),
-				requiredDocumentsList = self.portWizardGet('requiredDocumentsList'),
+				requiredDocumentsList = self.portWizardGet('requirements.documentsList'),
 				requiredDocumentsByAttachmentName = _.keyBy(requiredDocumentsList, 'attachmentName'),
 				requiredDocumentsByKey = _.keyBy(requiredDocumentsList, 'key'),
 				billDocumentMetadata = _.get(requiredDocumentsByKey, 'Bill', {}),
@@ -1251,14 +1311,8 @@ define(function(require) {
 					numbersByLosingCarrier: _
 						.chain(numbersByLosingCarrier)
 						.map(function(carrierNumberGroup) {
-							var carrierName = carrierNumberGroup.carrier,
-								lastColonIndex = _.lastIndexOf(carrierName, ':'),
-								carrierLabel = lastColonIndex > 0
-									? carrierName.substring(0, lastColonIndex)
-									: carrierName;
-
 							return {
-								carrier: carrierLabel,
+								carrier: self.portWizardCleanCarrierName(carrierNumberGroup.carrier),
 								numbers: _.map(carrierNumberGroup.numbers, 'e164Number')
 							};
 						})
@@ -1363,7 +1417,7 @@ define(function(require) {
 					requiredDocuments: numbersCarrierData.requiredDocuments,
 					data: {
 						designateWinningCarrier: {
-							losingCarrier: carrierNumberGroup.carrier,
+							losingCarrier: self.portWizardCleanCarrierName(carrierNumberGroup.carrier),
 							winningCarrier: _.get(
 								carrierSelectionData,
 								'winningCarrier',
@@ -1570,7 +1624,7 @@ define(function(require) {
 			var self = this,
 				losingCarrier = args.data.carrierSelection.losingCarrier,
 				ownershipConfirmationData = _.get(args.data, 'ownershipConfirmation'),
-				requiredDocumentsList = self.portWizardGet('requiredDocumentsList'),
+				requiredDocumentsList = self.portWizardGet('requirements.documentsList'),
 				billMetadata = _.find(requiredDocumentsList, { key: 'Bill' }),
 				$template = _.isUndefined(billMetadata) || _.has(args.data, 'ownershipConfirmation.latestBill')
 					? self.portWizardOwnershipConfirmationAccountInfoGetTemplate({
@@ -1728,35 +1782,8 @@ define(function(require) {
 					},
 					submodule: 'portWizard'
 				})),
-				$form = $template.find('form');
-
-			$template
-				.find('input[data-mask]')
-					.each(function() {
-						var $this = $(this),
-							mask = $this.data('mask');
-						$this.mask(mask);
-					});
-
-			$template
-				.find('input[data-monster-mask]')
-					.each(function() {
-						var $this = $(this),
-							mask = $this.data('monster-mask');
-						monster.ui.mask($this, mask);
-					});
-
-			monster.ui.countrySelector(
-				$template.find('#service_address_country'),
-				{
-					selectedValues: _.get(data, 'serviceAddress.country', defaultCountry)
-				}
-			);
-
-			monster.ui.tooltips($template);
-
-			monster.ui.validate($form, {
-				rules: {
+				$form = $template.find('form'),
+				defaultFormRules = {
 					'accountOwnership.carrier': {
 						required: true,
 						minlength: 1,
@@ -1803,7 +1830,6 @@ define(function(require) {
 						required: true
 					},
 					'accountInfo.accountNumber': {
-						required: true,
 						maxlength: 128
 					},
 					'accountInfo.pin': {
@@ -1814,6 +1840,35 @@ define(function(require) {
 						maxlength: 20
 					}
 				},
+				requiredFormRules = self.portWizardGet([ 'requirements', 'rulesByStep', 'ownershipConfirmation' ], {});
+
+			$template
+				.find('input[data-mask]')
+					.each(function() {
+						var $this = $(this),
+							mask = $this.data('mask');
+						$this.mask(mask);
+					});
+
+			$template
+				.find('input[data-monster-mask]')
+					.each(function() {
+						var $this = $(this),
+							mask = $this.data('monster-mask');
+						monster.ui.mask($this, mask);
+					});
+
+			monster.ui.countrySelector(
+				$template.find('#service_address_country'),
+				{
+					selectedValues: _.get(data, 'serviceAddress.country', defaultCountry)
+				}
+			);
+
+			monster.ui.tooltips($template);
+
+			monster.ui.validate($form, {
+				rules: _.merge({}, defaultFormRules, requiredFormRules),
 				onfocusout: self.portWizardValidateFormField,
 				autoScrollOnInvalid: true
 			});
@@ -1887,7 +1942,7 @@ define(function(require) {
 		 */
 		portWizardRequiredDocumentsRender: function(args, callback) {
 			var self = this,
-				requiredDocumentsCompleteList = self.portWizardGet('requiredDocumentsList'),
+				requiredDocumentsCompleteList = self.portWizardGet('requirements.documentsList'),
 				requiredDocumentsList = _.reject(requiredDocumentsCompleteList, { key: 'Bill' }),
 				requiredDocumentsMap = _.keyBy(requiredDocumentsList, 'key'),
 				requiredDocumentsKeys = _.keys(requiredDocumentsMap),
@@ -2365,7 +2420,7 @@ define(function(require) {
 					.merge({
 						Bill: bill
 					}, otherDocuments),
-				requiredDocumentsList = self.portWizardGet('requiredDocumentsList', []),
+				requiredDocumentsList = self.portWizardGet('requirements.documentsList', []),
 				formattedData = _
 					.merge(defaultValues, cleanData, {
 						nameAndNumbers: {
@@ -3009,7 +3064,7 @@ define(function(require) {
 		portWizardRequestPhoneNumbersLookup: function(args) {
 			var self = this;
 
-			/*monster.request({
+			monster.request({
 				resource: 'phonebook.lookupNumbers',
 				data: {
 					data: {
@@ -3023,751 +3078,6 @@ define(function(require) {
 					args.error({
 						isPhonebookUnavailable: _.includes([0, 500], error.status)
 					});
-				}
-			});*/
-			args.success({
-				numbers: {
-					'+14109255100': {
-						'losing_carrier': {
-							'name': 'SprintX:Y'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							/*{
-								'name': 'Verizon',
-								'portability': true
-							},*/
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255101': {
-						'losing_carrier': {
-							'name': 'Sprint'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255102': {
-						'losing_carrier': {
-							'name': 'Sprint'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255103': {
-						'losing_carrier': {
-							'name': 'Sprint'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255104': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255105': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255106': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255107': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255108': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255109': {
-						'losing_carrier': {
-							'name': 'AT&T'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255110': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255111': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255112': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255113': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255114': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255115': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255116': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255117': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255118': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255119': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255120': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255121': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255122': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255123': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255124': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255125': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255126': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255127': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255128': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255129': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255130': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255131': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255132': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255133': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255134': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255135': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255136': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': true
-							}
-						]
-					},
-					'+14109255137': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': false
-							}
-						]
-					},
-					'+14158867988': {
-						'losing_carrier': {
-							'name': 'T-Mobile'
-						},
-						'carriers': [
-							{
-								'name': 'Bandwidth',
-								'portability': true
-							},
-							{
-								'name': 'Verizon',
-								'portability': true
-							},
-							{
-								'name': 'Stuff',
-								'portability': false
-							}
-						]
-					}
 				}
 			});
 		},
@@ -3909,6 +3219,20 @@ define(function(require) {
 		/**************************************************
 		 *               Utility functions                *
 		 **************************************************/
+
+		/**
+		 * Cleans the carrier name by removing unfriendly suffix data
+		 * @param  {String} carrierName  Carrier name to clean
+		 * @returns  {String}  Clean carrier name
+		 */
+		portWizardCleanCarrierName: function(carrierName) {
+			var lastColonIndex = _.lastIndexOf(carrierName, ':'),
+				cleanCarrierName = lastColonIndex > 0
+					? carrierName.substring(0, lastColonIndex)
+					: carrierName;
+
+			return cleanCarrierName;
+		},
 
 		/**
 		  * Initialize a file input field
@@ -4054,20 +3378,56 @@ define(function(require) {
 						return waterfallCallback(null, numbersCarrierData);
 					}
 
-					var requirementsByCountries = self.appFlags.portWizard.requirementsByCountries,
+					var portWizardAppFlags = self.appFlags.portWizard,
+						allRequirements = portWizardAppFlags.requirements,
+						requirementsByCountry = _.get(portWizardAppFlags.requirementsByCountries, [numbersCarrierData.countryCode, numbersType]),
 						requiredDocuments = _
-							.chain(requirementsByCountries)
-							.get([numbersCarrierData.countryCode, numbersType])
-							.map(function(documentKey) {
+							.chain(allRequirements.documents)
+							.pick(requirementsByCountry)
+							.map(function(attachmentName, documentKey) {
 								return {
 									key: documentKey,
-									attachmentName: _.get(self.appFlags.portWizard.requirements, documentKey),
+									attachmentName: attachmentName,
 									required: true
 								};
 							})
+							.value(),
+						requiredFieldsByStep = _
+							.chain(allRequirements.fields)
+							.pick(requirementsByCountry)
+							.flatMap()
+							.groupBy('step')
+							.mapValues(function(stepFields) {
+								return _
+									.chain(stepFields)
+									.groupBy('section')
+									.mapValues(function(sectionFields) {
+										return _.map(sectionFields, function(field) {
+											return _.omit(field, [ 'step', 'section' ]);
+										});
+									})
+									.value();
+							})
+							.value(),
+						requiredRulesByStep = _
+							.chain(allRequirements.rules)
+							.pick(requirementsByCountry)
+							.flatMap()
+							.groupBy('step')
+							.mapValues(function(stepRules, step) {
+								return _
+									.chain(stepRules)
+									.keyBy('name')
+									.mapValues(function(fieldRules) {
+										return _.omit(fieldRules, [ 'name', 'step' ]);
+									})
+									.value();
+							})
 							.value();
 
-					self.portWizardSet('requiredDocumentsList', requiredDocuments);
+					self.portWizardSet('requirements.documentsList', requiredDocuments);
+					self.portWizardSet('requirements.fieldsByStep', requiredFieldsByStep);
+					self.portWizardSet('requirements.rulesByStep', requiredRulesByStep);
 
 					waterfallCallback(null, _.assign(numbersCarrierData, {
 						requiredDocuments: requiredDocuments

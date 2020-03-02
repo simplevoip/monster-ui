@@ -266,14 +266,14 @@
 					}
 				}
 			},
+			"documents": {
+				"LOA": "DIDWW LOA for a particular country",
+				"Bill": "Losing Carrier Bill",
+				"LegalAuth": "Legal proof of Authorization to sign termination document (in case number belongs to company)",
+				"ReleaseLetter": "Letter of Release from the losing provider",
+				"PaymentProof": "Latest Proof of Payment"
+			},
 			"requirements": {
-				"documents": {
-					"LOA": "DIDWW LOA for a particular country",
-					"Bill": "Losing Carrier Bill",
-					"LegalAuth": "Legal proof of Authorization to sign termination document (in case number belongs to company)",
-					"ReleaseLetter": "Letter of Release from the losing provider",
-					"PaymentProof": "Latest Proof of Payment"
-				},
 				"conditions": {
 					"AccountNum": "Account number required",
 					"LocalAddr": "End-user’s local address from the same city as the number to be ported",
