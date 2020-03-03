@@ -1664,11 +1664,22 @@ define(function(require) {
 			var self = this,
 				$form = $template.find('form'),
 				isValid = !eventArgs.completeStep || monster.ui.valid($form),
+				formData,
 				ownershipConfirmationData;
 
 			if (isValid) {
-				ownershipConfirmationData = monster.ui.getFormData($form.get(0));
-				ownershipConfirmationData.latestBill = self.portWizardGet('billData');
+				formData = monster.ui.getFormData($form.get(0));
+				ownershipConfirmationData = _.merge({}, formData, {
+					latestBill: self.portWizardGet('billData'),
+					accountInfo: {
+						btn: _
+							.chain(formData)
+							.get('accountInfo.btn')
+							.thru(monster.util.getFormatPhoneNumber)
+							.get('e164Number', '')
+							.value()
+					}
+				});
 				self.portWizardUnset('billData');
 			}
 
@@ -1854,7 +1865,8 @@ define(function(require) {
 					},
 					'accountInfo.btn': {
 						required: true,
-						maxlength: 20
+						maxlength: 20,
+						phoneNumber: true
 					}
 				}, requiredValidationRules),
 				validationMessages = self.portWizardGetValidationMessages({
