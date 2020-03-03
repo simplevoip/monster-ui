@@ -46,6 +46,7 @@
 	<div class="step-body flex-row-container">
 		<div class="{{#if @root.isBillRequired}}flex-item-2{{else}}flex-item-1{{/if}}">
 			<form id="form_ownership_confirmation">
+				<input type="hidden" name="numbers.country" value="{{@root.data.numbers.country}}">
 				<div class="step-section">
 					<div class="section-body flex-row-container">
 						{{> formFieldPartial section="accountOwnership" name="carrier"}}
