@@ -202,7 +202,11 @@
 					"label": "Required Documents",
 					"description": "Upload any other required documents and forms for your port request.",
 					"titleSingleDocument": "Due to regulations in your country, {{variable}} is required with your port request.",
-					"titleMultipleDocuments": "Due to regulations in your country, there are {{variable}} documents that are required for this port request"
+					"titleMultipleDocuments": "Due to regulations in your country, there are {{variable}} documents that are required for this port request",
+					"labels": {
+						"loaSignee": "LOA Signee",
+						"loaSigningDate": "LOA Signing Date"
+					}
 				},
 				"dateAndNotifications": {
 					"label": "Desired Date + Notifications",
@@ -254,6 +258,16 @@
 								"message": "You must read, understand, and agree to all of the following statements before you're able to submit this port request."
 							}
 						}
+					},
+					"general": {
+						"labels": {
+							"hide": "Hide",
+							"passwordMask": "**********",
+							"show": "Show"
+						},
+						"info": {
+							"noAccountData": "No account contacts have been added to this new account."
+						}
 					}
 				},
 				"general": {
@@ -275,20 +289,14 @@
 				}
 			},
 			"documents": {
-				"LOA": "DIDWW LOA for a particular country",
 				"Bill": "Losing Carrier Bill",
+				"CountryInfo": "Specific information for a particular country",
+				"CustomerID": "ID / Passport copy / Company Registration certificate",
 				"LegalAuth": "Legal proof of Authorization to sign termination document (in case number belongs to company)",
+				"LOA": "DIDWW LOA for a particular country",
+				"PaymentProof": "Latest Proof of Payment",
 				"ReleaseLetter": "Letter of Release from the losing provider",
-				"PaymentProof": "Latest Proof of Payment"
-			},
-			"requirements": {
-				"fields": {
-					"CountryInfo": "Specific information for a particular country",
-					"TaxID": "Local TAX / VAT ID or company registration number",
-					"CustomerID": "ID / Passport copy / Company Registration certificate",
-					"LOASignee": "",
-					"LOASigningDate": ""
-				}
+				"TaxID": "Local TAX / VAT ID or company registration number"
 			},
 			"load": {
 				"errors": {
