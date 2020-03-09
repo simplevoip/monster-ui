@@ -94,6 +94,16 @@ define(function(require) {
 						TaxID: 'tax_id.pdf'
 					},
 					fields: {
+						// TODO: Clean this and console.log sentences
+						/*DeleteXXX: [
+							{
+								name: 'loaSignee',
+								step: 'requiredDocuments',
+								section: 'extra',
+								type: 'text',
+								portRequestPath: 'signee_name'
+							}
+						],*/
 						LOA: [
 							{
 								name: 'loaSignee',
@@ -569,6 +579,45 @@ define(function(require) {
 					} else if (wizardStepId > requiredDocumentsStepId && isAnyRequiredDocumentMissing) {
 						wizardStepId = requiredDocumentsStepId;
 					}
+
+					waterfallCallback(null, $container, wizardPortRequestData, wizardStepId);
+				},
+				function checkRequiredExtraFields($container, wizardPortRequestData, wizardStepId, waterfallCallback) {
+					// Check required complementary fields, and modify wizard step if required
+					var requiredFieldsByStep = self.portWizardGet('requirements.fieldsByStep');
+
+					_.each(stepNames, function(stepName, stepIndex) {
+						console.log('step', stepName);
+						var stepHasRequiredExtraFieldMissing = _
+							.chain(requiredFieldsByStep)
+							.get(stepName, {})
+							.some(function(sectionFields, section) {
+								console.log('section', section);
+								return _.some(sectionFields, function(field) {
+									console.log('field', field.name);
+									var isFieldMissing = field.isRequired
+										&& _
+											.chain(wizardPortRequestData)
+											.get([ stepName, section, field.name ])
+											.thru(self.portWizardIsValueEmptyOrNil)
+											.value();
+
+									console.log('isFieldMissing', isFieldMissing);
+
+									return isFieldMissing;
+								});
+							})
+							.value();
+
+						console.log('stepHasRequiredExtraFieldMissing', stepHasRequiredExtraFieldMissing);
+
+						if (!stepHasRequiredExtraFieldMissing) {
+							return true;
+						}
+
+						wizardStepId = stepIndex;
+						return false;
+					});
 
 					waterfallCallback(null, $container, wizardPortRequestData, wizardStepId);
 				}
@@ -2835,11 +2884,11 @@ define(function(require) {
 		portWizardSaveGetFormattedPortRequest: function(wizardData) {
 			var self = this,
 				originalPortRequestDocument = self.portWizardGet('originalPortRequest', {}),
+				allRequiredFields = _.flatMap(self.appFlags.portWizard.requirements.fields),
 				requiredFieldsByStep = self.portWizardGet('requirements.fieldsByStep'),
 				nameAndNumbersData = wizardData.nameAndNumbers,
 				carrierSelectionData = wizardData.carrierSelection,
 				ownershipConfirmationData = wizardData.ownershipConfirmation,
-				requiredDocumentsData = wizardData.requiredDocuments,
 				dateAndNotificationsData = wizardData.dateAndNotifications,
 				numbers = _.map(nameAndNumbersData.numbersToPort.formattedNumbers, 'e164Number'),
 				formattedPortRequestNumbers = _.transform(numbers, function(numbers, number) {
@@ -2872,18 +2921,12 @@ define(function(require) {
 							pin: getOrEmptyString(ownershipConfirmationData, 'accountInfo.pin'),
 							btn: getOrEmptyString(ownershipConfirmationData, 'accountInfo.btn')
 						})
-						.thru(self.portWizardOmitEmptyOrNilProperties)
+						.thru(_.bind(self.portWizardOmitEmptyOrNilProperties, self))
 						.value()
 				},
 				winningCarrierSection = _.has(carrierSelectionData, 'winningCarrier') ? {
 					winning_carrier: carrierSelectionData.winningCarrier
 				} : {},
-				extraData = self.portWizardOmitEmptyOrNilProperties({
-					signee_name: _.get(requiredDocumentsData, 'extra.loaSignee'),
-					signing_date: _.has(requiredDocumentsData, 'extra.loaSigningDate')
-						? monster.util.dateToGregorian(requiredDocumentsData.extra.loaSigningDate)
-						: undefined
-				}),
 				cleanEmptyOrNilRecursively = function(object, path) {
 					var value = _.get(object, path);
 
@@ -2911,7 +2954,7 @@ define(function(require) {
 						type: nameAndNumbersData.numbersToPort.type,
 						validation: true
 					}
-				}, transferDateSection, winningCarrierSection, extraData);
+				}, transferDateSection, winningCarrierSection);
 
 			// Assign top level properties that need to be fully overwritten,
 			// because some internal properties may have been removed
@@ -2942,21 +2985,31 @@ define(function(require) {
 			cleanEmptyOrNilRecursively(newPortRequestDocument, [ 'notifications', 'email', 'send_to' ]);
 
 			// Set or clean extra data
-			_.each(self.appFlags.portWizard.requirements.fields, function(field) {
-				var wizardDataPath = [ field.step, field.section, field.name ],
-					rawFieldValue = _.get(wizardData, wizardDataPath),
+			_.each(allRequiredFields, function(field) {
+				var isFieldExpected = _
+						.chain(requiredFieldsByStep)
+						.get([ field.step, field.section ])
+						.some({ name: field.name })
+						.value(),
+					rawFieldValue = _.get(wizardData, [ field.step, field.section, field.name ]),
 					fieldValue;
 
-				if (_.has(requiredFieldsByStep, wizardDataPath) && !self.portWizardIsValueEmptyOrNil(rawFieldValue)) {
+				console.log(requiredFieldsByStep, field);
+
+				if (isFieldExpected && !self.portWizardIsValueEmptyOrNil(rawFieldValue)) {
 					fieldValue = field.type === 'date'
 						? monster.util.dateToGregorian(rawFieldValue)
 						: rawFieldValue;
-
+					console.log('Setting field', field, fieldValue);
 					_.set(newPortRequestDocument, field.portRequestPath, fieldValue);
 				} else {
+					console.log('Unsetting field', field);
 					_.unset(newPortRequestDocument, field.portRequestPath);
 				}
 			});
+
+			console.log('wizardData', wizardData);
+			console.log('newPortRequestDocument', newPortRequestDocument);
 
 			return newPortRequestDocument;
 		},
@@ -4313,7 +4366,7 @@ define(function(require) {
 											var fieldCompositeName = getFieldCompositeName(field);
 
 											return _.merge({
-												required: _.get(requiredRulesByStep, [
+												isRequired: _.get(requiredRulesByStep, [
 													field.step,
 													fieldCompositeName,
 													'required'
@@ -4367,6 +4420,18 @@ define(function(require) {
 			var self = this;
 
 			return _.omitBy(object, self.portWizardIsValueEmptyOrNil);
+
+			/*
+			console.log('portWizardOmitEmptyOrNilProperties', object);
+
+			var cleanObject = _.omitBy(object, function(value) {
+				console.log('omit/by', value);
+				return self.portWizardIsValueEmptyOrNil(value);
+			});
+			console.log('cleanObject', cleanObject);
+
+			return cleanObject;
+			*/
 		},
 
 		/**
@@ -4376,9 +4441,10 @@ define(function(require) {
 		 * @returns  {Boolean}  Whether or not the value is empty or nil
 		 */
 		portWizardIsValueEmptyOrNil: function(value) {
+			console.log('portWizardIsValueEmptyOrNil', value);
 			return _.isNil(value)
 				|| value === ''
-				|| (_.isObject(value) && _.isEmpty(value));
+				|| (_.isPlainObject(value) && _.isEmpty(value));
 		},
 
 		/**
