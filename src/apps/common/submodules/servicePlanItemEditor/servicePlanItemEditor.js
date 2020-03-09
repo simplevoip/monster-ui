@@ -109,6 +109,49 @@ define(function(require) {
 				 */
 				callback: _.get(args, 'callback')
 			});
+
+			monster.waterfall([
+				function maybeFetchEditableFields(callback) {
+					if (!_.isUndefined(self.servicePlanItemEditorGetStore('editable'))) {
+						return callback(null);
+					}
+					self.servicePlanItemEditorRequestListEditable({
+						success: function(editable) {
+							self.servicePlanItemEditorSetStore(
+								'editable',
+								self.servicePlanItemEditorGetStore('category')
+							);
+							callback(null);
+						}
+					});
+				}
+			], function() {
+				self.servicePlanItemEditorUpdateStoredFields();
+
+				console.log(
+					self.servicePlanItemEditorGetStore()
+				);
+			});
+		},
+
+		/**
+		 * @param  {Object} [args.data.accountId]
+		 */
+		servicePlanItemEditorRequestListEditable: function(args) {
+			var self = this;
+
+			self.callApi({
+				resource: 'services.listEditable',
+				data: _.merge({
+					accountId: self.accountId
+				}, args.data),
+				success: function(data, status) {
+					_.has(args, 'success') && args.success(data.data);
+				},
+				error: function(parsedError) {
+					_.has(args, 'error') && args.error(parsedError);
+				}
+			});
 		}
 	};
 });
