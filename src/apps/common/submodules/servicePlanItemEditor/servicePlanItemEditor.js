@@ -134,6 +134,23 @@ define(function(require) {
 			});
 		},
 
+		servicePlanItemEditorUpdateStoredFields: function() {
+			var self = this,
+				store = self.servicePlanItemEditorGetStore(),
+				all = _
+					.chain(store.editable)
+					.get(store.item)
+					.keys()
+					.value(),
+				selected = _.keys(store.data),
+				available = _.difference(all, selected);
+
+			self.servicePlanItemEditorSetStore('fields', {
+				available: available,
+				selected: selected
+			});
+		},
+
 		/**
 		 * @param  {Object} [args.data.accountId]
 		 */
