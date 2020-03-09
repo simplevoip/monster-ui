@@ -49,6 +49,66 @@ define(function(require) {
 		 * @param  {Function} args.callback
 		 */
 		servicePlanItemEditorRender: function(args) {
+			var self = this;
+
+			self.servicePlanItemEditorSetStore({
+				/**
+				 * Map of editable fields per items for `category`.
+				 * @type {Object}
+				 *
+				 * This map is populated either on publish or lazily on first render.
+				 *
+				 * We need to hold on to the entire list of editable items because when _all is
+				 * edited, it is possible to exclude any of those items.
+				 */
+				editable: _.get(
+					args,
+					'editable',
+					self.servicePlanItemEditorGetStore('editable', undefined)
+				),
+
+				/**
+				 * Holds the service plan item's category,
+				 * @type {String}
+				 */
+				category: _.get(args, 'category'),
+
+				/**
+				 * Holds the service plan item's identifier
+				 * @type {String}
+				 */
+				item: _.get(args, 'item'),
+				/**
+				 * Holds the service plan item being edited.
+				 * @type {Object}
+				 */
+				data: _.get(args, 'data', {}),
+
+				/**
+				 * Holds the original service plan item.
+				 * @type {Object}
+				 */
+				originalData: _
+					.chain(args)
+					.get('data', {})
+					.cloneDeep()
+					.value(),
+
+				/**
+				 * Describes which fields are available/selected for the service plan item.
+				 * @type {Object}
+				 */
+				fields: {
+					available: [],
+					selected: []
+				},
+
+				/**
+				 * Holds the onSave callback.
+				 * @type {Function}
+				 */
+				callback: _.get(args, 'callback')
+			});
 		}
 	};
 });
