@@ -9,11 +9,11 @@
 
 {{#*inline "formFieldPartial"}}
 	<div class="flex-item-1">
-	{{#with @root.i18n.commonApp.portWizard.steps.requiredDocuments as |requiredDocumentsI18n|}}
+	{{#with @root.i18n.commonApp.portWizard.steps.requiredDocuments.extraData as |extraDataI18n|}}
 		<label class="form-field">
-			{{tryI18n requiredDocumentsI18n.labels ../name}}
-		{{#if (lookup requiredDocumentsI18n.help ../name)}}
-			<span class="help-tip" title="{{tryI18n requiredDocumentsI18n.help ../name}}" data-toggle="tooltip">
+			{{tryI18n extraDataI18n.labels ../name}}
+		{{#if (lookup extraDataI18n.help ../name)}}
+			<span class="help-tip" title="{{tryI18n extraDataI18n.help ../name}}" data-toggle="tooltip">
 				{{telicon "question--circle" class="iconography-small iconography-help"}}
 			</span>
 		{{/if}}
@@ -23,7 +23,7 @@
 				{{telicon "calendar" class="iconography"}}
 			</div>
 		{{else}}
-			<input class="input-block-level" type="text" name="{{../section}}.{{../name}}" placeholder="{{coalesce (lookup requiredDocumentsI18n.placeholders ../name) (tryI18n requiredDocumentsI18n.labels ../name)}}"{{#if ../mask}} data-mask="{{../mask}}"{{else}}{{#if ../monsterMask}} data-monster-mask="{{../monsterMask}}"{{/if}}{{/if}} value="{{lookup (lookup @root.data ../section) ../name}}">
+			<input class="input-block-level" type="text" name="{{../section}}.{{../name}}" placeholder="{{coalesce (lookup extraDataI18n.placeholders ../name) (tryI18n extraDataI18n.labels ../name)}}"{{#if ../mask}} data-mask="{{../mask}}"{{else}}{{#if ../monsterMask}} data-monster-mask="{{../monsterMask}}"{{/if}}{{/if}} value="{{lookup (lookup @root.data ../section) ../name}}">
 		{{/compare}}
 		</label>
 	{{/with}}

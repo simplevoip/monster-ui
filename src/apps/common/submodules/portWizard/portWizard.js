@@ -99,47 +99,54 @@ define(function(require) {
 								name: 'loaSignee',
 								step: 'requiredDocuments',
 								section: 'extra',
-								type: 'text'
+								type: 'text',
+								portRequestPath: 'signee_name'
 							},
 							{
 								name: 'loaSigningDate',
 								step: 'requiredDocuments',
 								section: 'extra',
-								type: 'date'
+								type: 'date',
+								portRequestPath: 'signing_date'
 							}
 						]
 					},
 					rules: {
 						AccountNum: [
 							{
-								name: 'accountInfo.accountNumber',
+								name: 'accountNumber',
 								step: 'ownershipConfirmation',
+								section: 'accountInfo',
 								required: true
 							}
 						],
 						LocalAddr: [
 							{
-								name: 'serviceAddress.locality',
+								name: 'locality',
 								step: 'ownershipConfirmation',
+								section: 'serviceAddress',
 								equalTo: '[name="numbers.city"]'
 							}
 						],
 						ServiceAddr: [
 							{
-								name: 'serviceAddress.country',
+								name: 'country',
 								step: 'ownershipConfirmation',
+								section: 'serviceAddress',
 								equalTo: '[name="numbers.country"]'
 							}
 						],
 						LOA: [
 							{
-								name: 'extra.loaSignee',
+								name: 'loaSignee',
 								step: 'requiredDocuments',
+								section: 'extra',
 								required: true
 							},
 							{
-								name: 'extra.loaSigningDate',
+								name: 'loaSigningDate',
 								step: 'requiredDocuments',
+								section: 'extra',
 								required: true
 							}
 						]
@@ -721,8 +728,7 @@ define(function(require) {
 				adjustedTargetDate = (targetDate && minTargetDate < targetDate)
 					? minTargetDate
 					: targetDate,
-				omitEmpty = _.partialRight(_.omitBy, _.isEmpty),
-				wizardData = omitEmpty({
+				wizardData = self.portWizardOmitEmptyOrNilProperties({
 					portRequestId: portRequestData.id,
 					// Name and numbers are the minimum properties required for all port request
 					nameAndNumbers: {
@@ -737,12 +743,12 @@ define(function(require) {
 						}
 					},
 					carrierSelection: _.has(portRequestData, 'winning_carrier')
-						? omitEmpty({
+						? self.portWizardOmitEmptyOrNilProperties({
 							winningCarrier: portRequestData.winning_carrier
 						})
 						: null,
 					ownershipConfirmation: (billData || billAttachmentData)
-						? omitEmpty({
+						? self.portWizardOmitEmptyOrNilProperties({
 							latestBill: billAttachmentData
 								? _.merge(
 									{
@@ -750,11 +756,11 @@ define(function(require) {
 										attachmentName: billAttachmentName
 									}, documentDefaultMetadata, billAttachmentData, billDocumentMetadata)
 								: null,
-							accountOwnership: omitEmpty({
+							accountOwnership: self.portWizardOmitEmptyOrNilProperties({
 								carrier: billData.carrier,
 								billName: billData.name
 							}),
-							serviceAddress: omitEmpty({
+							serviceAddress: self.portWizardOmitEmptyOrNilProperties({
 								streetPreDir: billData.street_pre_dir,
 								streetNumber: billData.street_number,
 								streetName: billData.street_address,
@@ -766,16 +772,16 @@ define(function(require) {
 								postalCode: billData.postal_code,
 								country: billData.country
 							}),
-							accountInfo: omitEmpty({
+							accountInfo: self.portWizardOmitEmptyOrNilProperties({
 								accountNumber: billData.account_number,
 								pin: billData.pin,
 								btn: billData.btn
 							})
 						})
 						: null,
-					requiredDocuments: _.has(portRequestData, 'uploads') || _.has(portRequestData, 'transfer_date')
-						? {
-							documents: _
+					requiredDocuments: self.portWizardOmitEmptyOrNilProperties({
+						documents: _.has(portRequestData, 'uploads') || _.has(portRequestData, 'transfer_date')
+							? _
 								.chain(portRequestData)
 								.get('uploads')
 								.omit(billAttachmentName)
@@ -791,10 +797,13 @@ define(function(require) {
 									return _.get(allRequiredDocumentsByAttachmentName, attachmentName, attachmentName);
 								})
 								.merge(_.omit(requiredDocumentsByKey, 'Bill'))
-								.value(),
-							extra: {}
-						}
-						: null,
+								.value()
+							: null,
+						extra: self.portWizardOmitEmptyOrNilProperties({
+							loaSignee: portRequestData.signee_name,
+							loaSigningDate: portRequestData.signing_date
+						})
+					}),
 					dateAndNotifications: _.has(portRequestData, 'transfer_date')
 						? {
 							targetDate: adjustedTargetDate,
@@ -806,6 +815,9 @@ define(function(require) {
 						}
 						: null
 				});
+
+			console.log('wizardData', wizardData);
+			console.log('portRequestData', portRequestData);
 
 			return wizardData;
 		},
@@ -2024,7 +2036,7 @@ define(function(require) {
 			$template.find('.date-picker').each(function() {
 				var $this = $(this),
 					name = $this.attr('name'),
-					dateValue = _.get(extraData, name, todayDate);
+					dateValue = _.get(requiredDocumentsData, name, todayDate);
 
 				monster.ui.datepicker($this, {
 					maxDate: todayDate
@@ -2093,6 +2105,8 @@ define(function(require) {
 				requiredDocumentsData = self.portWizardGetFormData($form);
 
 				_.set(requiredDocumentsData, 'documents', self.portWizardGet('documentsData'));
+
+				console.log('portWizardRequiredDocumentsUtil', 'requiredDocumentsData', requiredDocumentsData);
 
 				self.portWizardUnset('documentsData');
 
@@ -2470,7 +2484,8 @@ define(function(require) {
 					'requiredDocuments'
 				]),
 				bill = _.get(data, 'ownershipConfirmation.latestBill'),
-				otherDocuments = _.get(data, 'requiredDocuments', {}),
+				requiredDocumentsData = data.requiredDocuments,
+				otherDocuments = _.get(requiredDocumentsData, 'documents', {}),
 				allDocuments = _
 					.merge({
 						Bill: bill
@@ -2497,12 +2512,13 @@ define(function(require) {
 									key: documentMetadata.key,
 									name: _.get(allDocuments, [ documentMetadata.key, 'name' ])
 								};
-							})
+							}),
+							extra: _.get(requiredDocumentsData, 'extra', {})
 						}
 					});
 			console.log('wizardData', data);
 			console.log('formattedData', formattedData);
-			// TODO: Include required documents' extra fields
+
 			return formattedData;
 		},
 
@@ -2819,12 +2835,12 @@ define(function(require) {
 		portWizardSaveGetFormattedPortRequest: function(wizardData) {
 			var self = this,
 				originalPortRequestDocument = self.portWizardGet('originalPortRequest', {}),
+				requiredFieldsByStep = self.portWizardGet('requirements.fieldsByStep'),
 				nameAndNumbersData = wizardData.nameAndNumbers,
 				carrierSelectionData = wizardData.carrierSelection,
 				ownershipConfirmationData = wizardData.ownershipConfirmation,
 				requiredDocumentsData = wizardData.requiredDocuments,
 				dateAndNotificationsData = wizardData.dateAndNotifications,
-				getOrEmptyString = _.partialRight(_.get, ''),
 				numbers = _.map(nameAndNumbersData.numbersToPort.formattedNumbers, 'e164Number'),
 				formattedPortRequestNumbers = _.transform(numbers, function(numbers, number) {
 					numbers[number] = {};
@@ -2833,6 +2849,7 @@ define(function(require) {
 				transferDateSection = _.has(dateAndNotificationsData, 'targetDate') ? {
 					transfer_date: monster.util.dateToGregorian(dateAndNotificationsData.targetDate)
 				} : {},
+				getOrEmptyString = _.partialRight(_.get, ''),
 				billSection = _.isNil(ownershipConfirmationData) ? {} : {
 					bill: _
 						.chain(originalPortRequestDocument)
@@ -2855,16 +2872,22 @@ define(function(require) {
 							pin: getOrEmptyString(ownershipConfirmationData, 'accountInfo.pin'),
 							btn: getOrEmptyString(ownershipConfirmationData, 'accountInfo.btn')
 						})
-						.omitBy(_.isEmpty)
+						.thru(self.portWizardOmitEmptyOrNilProperties)
 						.value()
 				},
 				winningCarrierSection = _.has(carrierSelectionData, 'winningCarrier') ? {
 					winning_carrier: carrierSelectionData.winningCarrier
 				} : {},
-				cleanEmptyRecursively = function(object, path) {
+				extraData = self.portWizardOmitEmptyOrNilProperties({
+					signee_name: _.get(requiredDocumentsData, 'extra.loaSignee'),
+					signing_date: _.has(requiredDocumentsData, 'extra.loaSigningDate')
+						? monster.util.dateToGregorian(requiredDocumentsData.extra.loaSigningDate)
+						: undefined
+				}),
+				cleanEmptyOrNilRecursively = function(object, path) {
 					var value = _.get(object, path);
 
-					if (_.isEmpty(value)) {
+					if (self.portWizardIsValueEmptyOrNil(value)) {
 						_.unset(object, path);
 					} else {
 						return;
@@ -2874,7 +2897,7 @@ define(function(require) {
 						return;
 					}
 
-					cleanEmptyRecursively(object, path.slice(0, -1));
+					cleanEmptyOrNilRecursively(object, path.slice(0, -1));
 				},
 				// Merge port request properties that can be deeply merged with an existing port
 				// request document
@@ -2887,12 +2910,8 @@ define(function(require) {
 						portion: null,
 						type: nameAndNumbersData.numbersToPort.type,
 						validation: true
-					},
-					signee_name: _.get(requiredDocumentsData, 'extra.loaSignee'),
-					signing_date: _.has(requiredDocumentsData, 'extra.loaSigningDate')
-						? monster.util.dateToGregorian(requiredDocumentsData.extra.loaSigningDate)
-						: undefined
-				}, transferDateSection, winningCarrierSection);
+					}
+				}, transferDateSection, winningCarrierSection, extraData);
 
 			// Assign top level properties that need to be fully overwritten,
 			// because some internal properties may have been removed
@@ -2920,11 +2939,24 @@ define(function(require) {
 			);
 
 			// Clean notifications sub-object, if there were no notification e-mails
-			cleanEmptyRecursively(newPortRequestDocument, [ 'notifications', 'email', 'send_to' ]);
+			cleanEmptyOrNilRecursively(newPortRequestDocument, [ 'notifications', 'email', 'send_to' ]);
 
-			// Clean other empty properties that may be removed
-			cleanEmptyRecursively(newPortRequestDocument, [ 'signee_name' ]);
-			cleanEmptyRecursively(newPortRequestDocument, [ 'signing_date' ]);
+			// Set or clean extra data
+			_.each(self.appFlags.portWizard.requirements.fields, function(field) {
+				var wizardDataPath = [ field.step, field.section, field.name ],
+					rawFieldValue = _.get(wizardData, wizardDataPath),
+					fieldValue;
+
+				if (_.has(requiredFieldsByStep, wizardDataPath) && !self.portWizardIsValueEmptyOrNil(rawFieldValue)) {
+					fieldValue = field.type === 'date'
+						? monster.util.dateToGregorian(rawFieldValue)
+						: rawFieldValue;
+
+					_.set(newPortRequestDocument, field.portRequestPath, fieldValue);
+				} else {
+					_.unset(newPortRequestDocument, field.portRequestPath);
+				}
+			});
 
 			return newPortRequestDocument;
 		},
@@ -3141,7 +3173,7 @@ define(function(require) {
 		portWizardRequestPhoneNumbersLookup: function(args) {
 			var self = this;
 
-			monster.request({
+			/*monster.request({
 				resource: 'phonebook.lookupNumbers',
 				data: {
 					data: {
@@ -3155,6 +3187,751 @@ define(function(require) {
 					args.error({
 						isPhonebookUnavailable: _.includes([0, 500], error.status)
 					});
+				}
+			});*/
+			args.success({
+				numbers: {
+					'+14109255100': {
+						'losing_carrier': {
+							'name': 'SprintX:Y'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							/*{
+								'name': 'Verizon',
+								'portability': true
+							},*/
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255101': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255102': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255103': {
+						'losing_carrier': {
+							'name': 'Sprint'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255104': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255105': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255106': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255107': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255108': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255109': {
+						'losing_carrier': {
+							'name': 'AT&T'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255110': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255111': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255112': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255113': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255114': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255115': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255116': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255117': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255118': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255119': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255120': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255121': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255122': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255123': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255124': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255125': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255126': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255127': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255128': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255129': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255130': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255131': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255132': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255133': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255134': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255135': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255136': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': true
+							}
+						]
+					},
+					'+14109255137': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': false
+							}
+						]
+					},
+					'+14158867988': {
+						'losing_carrier': {
+							'name': 'T-Mobile'
+						},
+						'carriers': [
+							{
+								'name': 'Bandwidth',
+								'portability': true
+							},
+							{
+								'name': 'Verizon',
+								'portability': true
+							},
+							{
+								'name': 'Stuff',
+								'portability': false
+							}
+						]
+					}
 				}
 			});
 		},
@@ -3493,6 +4270,9 @@ define(function(require) {
 					var portWizardAppFlags = self.appFlags.portWizard,
 						allRequirements = portWizardAppFlags.requirements,
 						requirementsByCountry = _.get(portWizardAppFlags.requirementsByCountries, [numbersCarrierData.countryCode, numbersType]),
+						getFieldCompositeName = function(field) {
+							return field.section + '.' + field.name;
+						},
 						requiredDocuments = _
 							.chain(allRequirements.documents)
 							.pick(requirementsByCountry)
@@ -3502,6 +4282,21 @@ define(function(require) {
 									attachmentName: attachmentName,
 									required: true
 								};
+							})
+							.value(),
+						requiredRulesByStep = _
+							.chain(allRequirements.rules)
+							.pick(requirementsByCountry)
+							.flatMap()
+							.groupBy('step')
+							.mapValues(function(stepRules) {
+								return _
+									.chain(stepRules)
+									.keyBy(getFieldCompositeName)
+									.mapValues(function(fieldRules) {
+										return _.omit(fieldRules, [ 'step', 'section', 'name' ]);
+									})
+									.value();
 							})
 							.value(),
 						requiredFieldsByStep = _
@@ -3515,23 +4310,16 @@ define(function(require) {
 									.groupBy('section')
 									.mapValues(function(sectionFields) {
 										return _.map(sectionFields, function(field) {
-											return _.omit(field, 'step');
+											var fieldCompositeName = getFieldCompositeName(field);
+
+											return _.merge({
+												required: _.get(requiredRulesByStep, [
+													field.step,
+													fieldCompositeName,
+													'required'
+												], false)
+											}, _.omit(field, 'step'));
 										});
-									})
-									.value();
-							})
-							.value(),
-						requiredRulesByStep = _
-							.chain(allRequirements.rules)
-							.pick(requirementsByCountry)
-							.flatMap()
-							.groupBy('step')
-							.mapValues(function(stepRules, step) {
-								return _
-									.chain(stepRules)
-									.keyBy('name')
-									.mapValues(function(fieldRules) {
-										return _.omit(fieldRules, [ 'name', 'step' ]);
 									})
 									.value();
 							})
@@ -3541,6 +4329,7 @@ define(function(require) {
 					self.portWizardSet('requirements.fieldsByStep', requiredFieldsByStep);
 					self.portWizardSet('requirements.rulesByStep', requiredRulesByStep);
 					console.log('requiredFieldsByStep', requiredFieldsByStep);
+					console.log('requiredRulesByStep', requiredRulesByStep);
 					waterfallCallback(null, _.assign(numbersCarrierData, {
 						requiredDocuments: requiredDocuments
 					}));
@@ -3566,6 +4355,30 @@ define(function(require) {
 			});
 
 			return data;
+		},
+
+		/**
+		 * Creates a composed object that does not contain the empty or nil properties from the
+		 * passed object
+		 * @param  {Object} object  Object to clean
+		 * @returns  {Object}  Object without empty or nil properties
+		 */
+		portWizardOmitEmptyOrNilProperties: function(object) {
+			var self = this;
+
+			return _.omitBy(object, self.portWizardIsValueEmptyOrNil);
+		},
+
+		/**
+		 * Checks if a value is empty or nil. Differs from _.isEmpty in that non object values
+		 * are not considered empty, except for empty strings
+		 * @param  {Any} value  Value to check
+		 * @returns  {Boolean}  Whether or not the value is empty or nil
+		 */
+		portWizardIsValueEmptyOrNil: function(value) {
+			return _.isNil(value)
+				|| value === ''
+				|| (_.isObject(value) && _.isEmpty(value));
 		},
 
 		/**
