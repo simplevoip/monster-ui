@@ -94,16 +94,6 @@ define(function(require) {
 						TaxID: 'tax_id.pdf'
 					},
 					fields: {
-						// TODO: Clean this and console.log sentences
-						/*DeleteXXX: [
-							{
-								name: 'loaSignee',
-								step: 'requiredDocuments',
-								section: 'extra',
-								type: 'text',
-								portRequestPath: 'signee_name'
-							}
-						],*/
 						LOA: [
 							{
 								name: 'loaSignee',
@@ -587,14 +577,11 @@ define(function(require) {
 					var requiredFieldsByStep = self.portWizardGet('requirements.fieldsByStep');
 
 					_.each(stepNames, function(stepName, stepIndex) {
-						console.log('step', stepName);
 						var stepHasRequiredExtraFieldMissing = _
 							.chain(requiredFieldsByStep)
 							.get(stepName, {})
 							.some(function(sectionFields, section) {
-								console.log('section', section);
 								return _.some(sectionFields, function(field) {
-									console.log('field', field.name);
 									var isFieldMissing = field.isRequired
 										&& _
 											.chain(wizardPortRequestData)
@@ -602,14 +589,10 @@ define(function(require) {
 											.thru(self.portWizardIsValueEmptyOrNil)
 											.value();
 
-									console.log('isFieldMissing', isFieldMissing);
-
 									return isFieldMissing;
 								});
 							})
 							.value();
-
-						console.log('stepHasRequiredExtraFieldMissing', stepHasRequiredExtraFieldMissing);
 
 						if (!stepHasRequiredExtraFieldMissing) {
 							return true;
@@ -864,9 +847,6 @@ define(function(require) {
 						}
 						: null
 				});
-
-			console.log('wizardData', wizardData);
-			console.log('portRequestData', portRequestData);
 
 			return wizardData;
 		},
@@ -2155,8 +2135,6 @@ define(function(require) {
 
 				_.set(requiredDocumentsData, 'documents', self.portWizardGet('documentsData'));
 
-				console.log('portWizardRequiredDocumentsUtil', 'requiredDocumentsData', requiredDocumentsData);
-
 				self.portWizardUnset('documentsData');
 
 				delete args.data.requiredDocuments;
@@ -2565,8 +2543,6 @@ define(function(require) {
 							extra: _.get(requiredDocumentsData, 'extra', {})
 						}
 					});
-			console.log('wizardData', data);
-			console.log('formattedData', formattedData);
 
 			return formattedData;
 		},
@@ -2994,22 +2970,16 @@ define(function(require) {
 					rawFieldValue = _.get(wizardData, [ field.step, field.section, field.name ]),
 					fieldValue;
 
-				console.log(requiredFieldsByStep, field);
-
 				if (isFieldExpected && !self.portWizardIsValueEmptyOrNil(rawFieldValue)) {
 					fieldValue = field.type === 'date'
 						? monster.util.dateToGregorian(rawFieldValue)
 						: rawFieldValue;
-					console.log('Setting field', field, fieldValue);
+
 					_.set(newPortRequestDocument, field.portRequestPath, fieldValue);
 				} else {
-					console.log('Unsetting field', field);
 					_.unset(newPortRequestDocument, field.portRequestPath);
 				}
 			});
-
-			console.log('wizardData', wizardData);
-			console.log('newPortRequestDocument', newPortRequestDocument);
 
 			return newPortRequestDocument;
 		},
@@ -4376,15 +4346,17 @@ define(function(require) {
 									})
 									.value();
 							})
-							.value();
+							.value(),
+						formattedRequirements = {
+							documentsList: requiredDocuments,
+							fieldsByStep: requiredFieldsByStep,
+							rulesByStep: requiredRulesByStep
+						};
 
-					self.portWizardSet('requirements.documentsList', requiredDocuments);
-					self.portWizardSet('requirements.fieldsByStep', requiredFieldsByStep);
-					self.portWizardSet('requirements.rulesByStep', requiredRulesByStep);
-					console.log('requiredFieldsByStep', requiredFieldsByStep);
-					console.log('requiredRulesByStep', requiredRulesByStep);
+					self.portWizardSet('requirements', formattedRequirements);
+
 					waterfallCallback(null, _.assign(numbersCarrierData, {
-						requiredDocuments: requiredDocuments
+						requirements: formattedRequirements
 					}));
 				}
 			], callback);
@@ -4420,28 +4392,15 @@ define(function(require) {
 			var self = this;
 
 			return _.omitBy(object, self.portWizardIsValueEmptyOrNil);
-
-			/*
-			console.log('portWizardOmitEmptyOrNilProperties', object);
-
-			var cleanObject = _.omitBy(object, function(value) {
-				console.log('omit/by', value);
-				return self.portWizardIsValueEmptyOrNil(value);
-			});
-			console.log('cleanObject', cleanObject);
-
-			return cleanObject;
-			*/
 		},
 
 		/**
-		 * Checks if a value is empty or nil. Differs from _.isEmpty in that non object values
-		 * are not considered empty, except for empty strings
+		 * Checks if a value is empty or nil. Differs from _.isEmpty in that non plain object
+		 * values are not considered empty, except for empty strings
 		 * @param  {Any} value  Value to check
 		 * @returns  {Boolean}  Whether or not the value is empty or nil
 		 */
 		portWizardIsValueEmptyOrNil: function(value) {
-			console.log('portWizardIsValueEmptyOrNil', value);
 			return _.isNil(value)
 				|| value === ''
 				|| (_.isPlainObject(value) && _.isEmpty(value));
