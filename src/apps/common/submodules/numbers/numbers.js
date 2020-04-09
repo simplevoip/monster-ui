@@ -40,7 +40,7 @@ define(function(require) {
 						}
 					};
 
-				monster.pub('common.numberFeaturesMenu.render', args);
+				// monster.pub('common.numberFeaturesMenu.render', args);
 			});
 		},
 
