@@ -17,6 +17,7 @@ define({
             companyName: 'SimpleVoIP',
             applicationTitle: 'Monster UI',
             callReportEmail: 'support@simplevoip.us',
+            disableNumbersFeatures: true,
             hide_powered: true,
             hideAppStore: true,
             hideBuyNumbers: true,
