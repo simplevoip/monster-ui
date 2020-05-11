@@ -148,7 +148,8 @@
 				'getQueueDetails': { verb: 'POST', url: 'accounts/{accountId}/dashboards/queue_details/{queueId}' },
 				'getQueueOverview': { verb: 'POST', url: 'accounts/{accountId}/dashboards/queue_overview' },
 				'getRecipientOverview': { verb: 'GET', url: 'accounts/{accountId}/dashboards/recipient_overview' },
-				'getRecipientPerformance': { verb: 'GET', url: 'accounts/{accountId}/dashboards/recipient_performance' }
+				'getRecipientPerformance': { verb: 'GET', url: 'accounts/{accountId}/dashboards/recipient_performance' },
+				'getActivityLog': { verb: 'POST', url: 'accounts/{accountId}/dashboards/activity_log' }
 			},
 			desktop: {
 				'getWindows': { verb: 'GET', url: 'accounts/{accountId}/desktop/windows' },
@@ -376,7 +377,8 @@
 				'listStatus': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/status' },
 				'updateStatus': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/{userId}/status' },
 				'updateState': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/{userId}' },
-				'updateRoles': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/{userId}/roles' }
+				'updateRoles': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/{userId}/roles' },
+				'getQueueMembership': { verb: 'POST', url: 'accounts/{accountId}/qubicle_recipients/queue_membership' }
 			},
 			qubicleRoles: {
 				'list': { verb: 'GET', url: 'accounts/{accountId}/qubicle_roles' }
@@ -491,7 +493,8 @@
 				'list': { verb: 'GET', url: 'accounts/{accountId}/users' },
 				'quickcall': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/quickcall/{number}' },
 				'hotdesks': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/hotdesks' },
-				'updatePresence': { verb: 'POST', url: 'accounts/{accountId}/users/{userId}/presence' }
+				'updatePresence': { verb: 'POST', url: 'accounts/{accountId}/users/{userId}/presence' },
+				'listDevices': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/devices' }
 			},
 			voicemail: {
 				'get': { verb: 'GET', url: 'accounts/{accountId}/vmboxes/{voicemailId}' },
