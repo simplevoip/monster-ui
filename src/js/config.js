@@ -19,7 +19,7 @@ define({
             callReportEmail: 'support@simplevoip.us',
             disableNumbersFeatures: true,
             hide_powered: true,
-            hideAppStore: true,
+            hideAppStore: false,
             hideBuyNumbers: true,
             hideNewAccountCreation: true,
             hide_port: true,
