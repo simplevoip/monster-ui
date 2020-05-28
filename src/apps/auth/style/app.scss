@@ -215,6 +215,16 @@
 	display: inline-block;
 	float: right;
 }
+#auth_app_admin_link_div {
+	margin-top: 30px;
+	color: #878787;
+	a {
+		color: #878787;
+	}
+	a:hover{
+		text-decoration: underline;
+	}
+}
 /*
 =====================================
 	FORM INPUTS WITH .error CLASS
