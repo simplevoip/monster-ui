@@ -35,6 +35,6 @@ define({
     },
     api: {
             'default' : 'https://portal.simplevoip.us:8443/v2/',
-            simplevoip: 'http://svportal.local/monster/'
+            simplevoip: 'https://staging.simplevoip.us/monster/'
     }
 });
