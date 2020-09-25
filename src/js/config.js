@@ -17,7 +17,7 @@ define({
             companyName: 'SimpleVoIP',
             applicationTitle: 'Monster UI',
             callReportEmail: 'support@simplevoip.us',
-            disableNumbersFeatures: true,
+            disableNumbersFeatures: false,
             hide_powered: true,
             hideAppStore: false,
             hideBuyNumbers: true,
@@ -34,6 +34,7 @@ define({
             }
     },
     api: {
-            'default' : 'https://portal.simplevoip.us:8443/v2/'
+            'default' : 'https://portal.simplevoip.us:8443/v2/',
+            simplevoip: 'http://svportal.local/monster/'
     }
 });

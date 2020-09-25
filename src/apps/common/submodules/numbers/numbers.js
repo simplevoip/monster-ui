@@ -830,14 +830,13 @@ define(function(require) {
 		numbersGetSubAccountNumber: function(accountId, number, callback) {
 			var self = this;
 
-			self.callApi({
-				resource: 'numbers.get',
+			monster.request({
+				resource: 'sv.numbers.get',
 				data: {
 					accountId: accountId,
-					generateError: false,
 					phoneNumber: encodeURIComponent(number)
 				},
-				success: function(data) {
+				success: function(data, status) {
 					callback && callback(data.data);
 				},
 				error: function(parsedError, error, globalHandler) {
@@ -848,6 +847,25 @@ define(function(require) {
 					}
 				}
 			});
+
+			// self.callApi({
+			// 	resource: 'numbers.get',
+			// 	data: {
+			// 		accountId: accountId,
+			// 		generateError: false,
+			// 		phoneNumber: encodeURIComponent(number)
+			// 	},
+			// 	success: function(data) {
+			// 		callback && callback(data.data);
+			// 	},
+			// 	error: function(parsedError, error, globalHandler) {
+			// 		if (error.status === 403) {
+			// 			monster.ui.alert(self.i18n.active().numbers.dialogAlertNowAllowed.info);
+			// 		} else {
+			// 			globalHandler(parsedError, { generateError: true });
+			// 		}
+			// 	}
+			// });
 		},
 
 		numbersShowRecapAddNumbers: function(data) {
@@ -1523,8 +1541,8 @@ define(function(require) {
 		numbersGetNumber: function(phoneNumber, accountId, success, error) {
 			var self = this;
 
-			self.callApi({
-				resource: 'numbers.get',
+			monster.request({
+				resource: 'sv.numbers.get',
 				data: {
 					accountId: accountId,
 					phoneNumber: encodeURIComponent(phoneNumber)
@@ -1536,6 +1554,20 @@ define(function(require) {
 					error && error(_data.data);
 				}
 			});
+
+			// self.callApi({
+			// 	resource: 'numbers.get',
+			// 	data: {
+			// 		accountId: accountId,
+			// 		phoneNumber: encodeURIComponent(phoneNumber)
+			// 	},
+			// 	success: function(_data, status) {
+			// 		success && success(_data.data);
+			// 	},
+			// 	error: function(_data, status) {
+			// 		error && error(_data.data);
+			// 	}
+			// });
 		},
 
 		numbersEditFeatures: function(args) {

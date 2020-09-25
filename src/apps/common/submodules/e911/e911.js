@@ -262,13 +262,19 @@ define(function(require) {
 			// The back-end doesn't let us set features anymore, they return the field based on the key set on that document.
 			delete data.features;
 
-			self.callApi({
-				resource: 'numbers.update',
+			var resource = 'sv.numbers.create';
+			if (data.hasOwnProperty('e911')) {
+				if (data.e911.hasOwnProperty('erlid')) {
+					resource = 'sv.numbers.update';
+				}
+			}
+
+			monster.request({
+				resource: resource,
 				data: {
 					accountId: accountId,
 					phoneNumber: encodeURIComponent(phoneNumber),
-					data: data,
-					generateError: false
+					data: data
 				},
 				success: function(_data, status) {
 					callbacks.success && callbacks.success(_data);
@@ -285,6 +291,30 @@ define(function(require) {
 					}
 				}
 			});
+
+			// self.callApi({
+			// 	resource: 'numbers.update',
+			// 	data: {
+			// 		accountId: accountId,
+			// 		phoneNumber: encodeURIComponent(phoneNumber),
+			// 		data: data,
+			// 		generateError: false
+			// 	},
+			// 	success: function(_data, status) {
+			// 		callbacks.success && callbacks.success(_data);
+			// 	},
+			// 	error: function(_data, status, globalHandler) {
+			// 		if (_data.error === '400') {
+			// 			if (data.message === 'multiple_choice') {
+			// 				callbacks.multipleChoices && callbacks.multipleChoices(_data.data.multiple_choice.e911);
+			// 			} else {
+			// 				callbacks.invalidAddress && callbacks.invalidAddress();
+			// 			}
+			// 		} else {
+			// 			globalHandler(_data, { generateError: true });
+			// 		}
+			// 	}
+			// });
 		},
 
 		e911GetAddressFromZipCode: function(args) {
