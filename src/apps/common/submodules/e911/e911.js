@@ -63,26 +63,26 @@ define(function(require) {
 				}
 			});
 
-			popupHtml.find('#postal_code').change(function() {
-				var zipCode = $(this).val();
-
-				if (zipCode) {
-					self.e911GetAddressFromZipCode({
-						data: {
-							zipCode: zipCode
-						},
-						success: function(results) {
-							if (!_.isEmpty(results)) {
-								var length = results[0].address_components.length;
-
-								popupHtml.find('#locality').val(results[0].address_components[1].long_name);
-								// Last component is country, before last is state, before can be county if exists or city if no county, so we had to change from 3 to length-2.
-								popupHtml.find('#region').val(results[0].address_components[length - 2].short_name);
-							}
-						}
-					});
-				}
-			});
+			// popupHtml.find('#postal_code').change(function() {
+			// 	var zipCode = $(this).val();
+            //
+			// 	if (zipCode) {
+			// 		self.e911GetAddressFromZipCode({
+			// 			data: {
+			// 				zipCode: zipCode
+			// 			},
+			// 			success: function(results) {
+			// 				if (!_.isEmpty(results)) {
+			// 					var length = results[0].address_components.length;
+            //
+			// 					popupHtml.find('#locality').val(results[0].address_components[1].long_name);
+			// 					// Last component is country, before last is state, before can be county if exists or city if no county, so we had to change from 3 to length-2.
+			// 					popupHtml.find('#region').val(results[0].address_components[length - 2].short_name);
+			// 				}
+			// 			}
+			// 		});
+			// 	}
+			// });
 
 			popupHtml.find('.inline_field > input').keydown(function() {
 				popup.find('.gmap_link_div').hide();
@@ -265,7 +265,9 @@ define(function(require) {
 			var resource = 'sv.numbers.create';
 			if (data.hasOwnProperty('e911')) {
 				if (data.e911.hasOwnProperty('erlid')) {
-					resource = 'sv.numbers.update';
+					if (data.e911.erlid.length) {
+						resource = 'sv.numbers.update';
+					}
 				}
 			}
 

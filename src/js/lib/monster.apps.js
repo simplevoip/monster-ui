@@ -224,14 +224,6 @@ define(function() {
 									delete data.data.dash_e911;
 								}
 
-								// 2600Hz no longer allows e911 to be set, so if it exists it needs to be set to a custom property
-								if (data.data.hasOwnProperty('sv_metadata') && !data.data.hasOwnProperty('e911')) {
-									if (data.data.sv_metadata.hasOwnProperty('e911')) {
-										data.data.e911 = data.data.sv_metadata.e911;
-										delete data.data.sv_metadata.e911;
-									}
-								}
-
 								params.success && params.success(data, status);
 							};
 							break;
@@ -243,14 +235,6 @@ define(function() {
 								}
 
 								delete params.data.data.dash_e911;
-							}
-
-							// 2600Hz no longer allows e911 to be set, so if it exists it needs to be set to a custom property
-							if (params.data.data.hasOwnProperty('e911')) {
-								params.data.data.sv_metadata = {
-									e911: params.data.data.e911
-								};
-								delete params.data.data.e911;
 							}
 							break;
 
