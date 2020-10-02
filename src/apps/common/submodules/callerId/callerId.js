@@ -173,19 +173,8 @@ define(function(require) {
 			// the field based on the key set on that document.
 			delete args.data.data.features;
 
-			// monster.request({
-			// 	resource: 'sv.numbers.update',
-			// 	data: args.data,
-			// 	success: function(data) {
-			// 		args.hasOwnProperty('success') && args.success(data);
-			// 	},
-			// 	error: function(parsedError) {
-			// 		args.hasOwnProperty('error') && args.error(parsedError);
-			// 	}
-			// });
-
-			self.callApi({
-				resource: 'numbers.update',
+			monster.request({
+				resource: 'sv.numbers.update',
 				data: args.data,
 				success: function(data) {
 					args.hasOwnProperty('success') && args.success(data);
@@ -194,6 +183,17 @@ define(function(require) {
 					args.hasOwnProperty('error') && args.error(parsedError);
 				}
 			});
+
+			// self.callApi({
+			// 	resource: 'numbers.update',
+			// 	data: args.data,
+			// 	success: function(data) {
+			// 		args.hasOwnProperty('success') && args.success(data);
+			// 	},
+			// 	error: function(parsedError) {
+			// 		args.hasOwnProperty('error') && args.error(parsedError);
+			// 	}
+			// });
 		},
 
 		/**
@@ -210,19 +210,8 @@ define(function(require) {
 
 			args.data.phoneNumber = encodeURIComponent(args.data.phoneNumber);
 
-			// monster.request({
-			// 	resource: 'sv.numbers.get',
-			// 	data: args.data,
-			// 	success: function(data) {
-			// 		args.hasOwnProperty('success') && args.success(data);
-			// 	},
-			// 	error: function(parsedError) {
-			// 		args.hasOwnProperty('error') && args.error(parsedError);
-			// 	}
-			// });
-
-			self.callApi({
-				resource: 'numbers.get',
+			monster.request({
+				resource: 'sv.numbers.get',
 				data: args.data,
 				success: function(data) {
 					args.hasOwnProperty('success') && args.success(data);
@@ -231,6 +220,17 @@ define(function(require) {
 					args.hasOwnProperty('error') && args.error(parsedError);
 				}
 			});
+
+			// self.callApi({
+			// 	resource: 'numbers.get',
+			// 	data: args.data,
+			// 	success: function(data) {
+			// 		args.hasOwnProperty('success') && args.success(data);
+			// 	},
+			// 	error: function(parsedError) {
+			// 		args.hasOwnProperty('error') && args.error(parsedError);
+			// 	}
+			// });
 		}
 	};
 
