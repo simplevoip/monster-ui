@@ -311,7 +311,8 @@
 		"successRemoveCnam": "You successfully removed the Caller-ID of {{phoneNumber}}",
 		"noCallerId": "There is no Caller-ID for the phone number {{phoneNumber}}",
 		"inboundTitle": "Inbound Caller ID Name",
-		"outboundTitle": "Outbound Caller ID Name"
+		"outboundTitle": "Outbound Caller ID Name",
+		"invalidCNAMAlert": "Caller ID Name can only be letters, numbers, and spaces."
 	},
 
 	"e911": {

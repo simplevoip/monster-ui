@@ -90,7 +90,8 @@
 		"successRemoveCnam": "Вы успешно удалили Caller-ID для номера {{phoneNumber}}",
 		"noCallerId": "Для номера {{phoneNumber}} не установлен Caller-ID",
 		"inboundTitle": "Имя Caller ID для входящих вызовов",
-		"outboundTitle": "Имя Caller ID для исходящих вызовов"
+		"outboundTitle": "Имя Caller ID для исходящих вызовов",
+		"invalidCNAMAlert": "Имя вызывающего абонента может состоять только из букв, цифр и пробелов."
 	},
 
 	"e911": {

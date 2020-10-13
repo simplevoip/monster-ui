@@ -114,7 +114,8 @@
 		"successRemoveCnam": "Vous avez supprimé avec succès le Caller-ID de {{phoneNumber}}",
 		"noCallerId": "Il n'y a aucun Caller-ID pour le numéro {{phoneNumber}}",
 		"inboundTitle": "Caller-ID d'Appels Entrants",
-		"outboundTitle": "Caller-ID d'Appels Sortants"
+		"outboundTitle": "Caller-ID d'Appels Sortants",
+		"invalidCNAMAlert": "Caller-ID d'Appels ne peut être que des lettres, des chiffres et des espaces."
 	},
 	"e911":{
 		"addressLine1":"Ligne Adresse 1",

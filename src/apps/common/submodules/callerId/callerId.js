@@ -85,6 +85,14 @@ define(function(require) {
 					delete dataNumber.cnam.display_name;
 				}
 
+				var regex = /[^a-zA-Z0-9\s]/,
+					matches = regex.exec(dataNumber.cnam.display_name);
+
+				if (matches !== null) {
+					monster.ui.alert(self.i18n.active().callerId.invalidCNAMAlert);
+					return;
+				}
+
 				monster.waterfall([
 					function(callback) {
 						self.callerIdUpdateNumber({

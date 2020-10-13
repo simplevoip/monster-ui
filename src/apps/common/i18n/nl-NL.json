@@ -92,7 +92,8 @@
 		"successRemoveCnam": "De Caller-ID van {{phoneNumber}} is succesvol verwijderd",
 		"noCallerId": "Er is geen Caller-ID voor nummer {{phoneNumber}}",
 		"inboundTitle": "Inbound Caller ID Naam",
-		"outboundTitle": "Outbound Caller ID Naam"
+		"outboundTitle": "Outbound Caller ID Naam",
+		"invalidCNAMAlert": "Caller ID Naam mag alleen uit letters, cijfers en spaties bestaan."
 	},
 
 	"e911": {

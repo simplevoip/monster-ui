@@ -190,7 +190,8 @@
 		"successRemoveCnam": "Sie haben die Anrufer-ID von {{phoneNumber}} erfolgreich entfernt",
 		"noCallerId": "Für die Telefonnummer {{phoneNumber}} ist keine Anrufer-ID festgelegt",
 		"inboundTitle": "Eingehender-Anrufer-ID-Name",
-		"outboundTitle": "Ausgehender-Anrufer-ID-Name"
+		"outboundTitle": "Ausgehender-Anrufer-ID-Name",
+		"invalidCNAMAlert": "Anrufer-ID-Name kann nur aus Buchstaben, Zahlen und Leerzeichen bestehen."
 	},
 
 	"e911": {
