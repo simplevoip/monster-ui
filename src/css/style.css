@@ -3,6 +3,8 @@
 @import url('vendor/normalize.css');
 @import url('vendor/animate.css');
 
+@import url('vendor/datatables/css/datatables.min.css');
+
 @import url('vendor/bootstrap.min.css');
 @import url('lib/custom/bootstrap-add.css');
 

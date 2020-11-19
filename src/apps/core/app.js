@@ -488,7 +488,7 @@ define(function(require) {
 				self.restoreMasquerading({
 					callback: callback
 				});
-			} else if (!args.account.hasOwnProperty('name')) {
+			} else /*if (!args.account.hasOwnProperty('name'))*/ {
 				self.callApi({
 					resource: 'account.get',
 					data: {
@@ -505,8 +505,8 @@ define(function(require) {
 						callback && callback();
 					}
 				});
-			} else {
-				afterGetData(args.account);
+			// } else {
+			// 	afterGetData(args.account);
 			}
 		},
 
