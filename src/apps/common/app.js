@@ -76,6 +76,14 @@ define(function(require) {
 				removeHeaders: [
 					'X-Auth-Token'
 				]
+			},
+			'sv.callerid.update': {
+				apiRoot: monster.config.api.simplevoip,
+				url: 'api_functions.php?m=callerid&accountId={accountId}&phoneNumber={phoneNumber}',
+				verb: 'POST',
+				removeHeaders: [
+					'X-Auth-Token'
+				]
 			}
 		},
 		subscribe: {},
