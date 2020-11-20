@@ -182,7 +182,7 @@ define(function(require) {
 			delete args.data.data.features;
 
 			monster.request({
-				resource: 'sv.numbers.update',
+				resource: 'sv.callerid.update',
 				data: args.data,
 				success: function(data) {
 					args.hasOwnProperty('success') && args.success(data);
