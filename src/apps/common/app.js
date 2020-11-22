@@ -55,7 +55,7 @@ define(function(require) {
 		requests: {
 			'sv.numbers.get': {
 				apiRoot: monster.config.api.simplevoip,
-				url: 'api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
+				url: 'monster/api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
 				verb: 'GET',
 				removeHeaders: [
 					'X-Auth-Token'
@@ -63,7 +63,7 @@ define(function(require) {
 			},
 			'sv.numbers.update': {
 				apiRoot: monster.config.api.simplevoip,
-				url: 'api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
+				url: 'monster/api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
 				verb: 'POST',
 				removeHeaders: [
 					'X-Auth-Token'
@@ -71,7 +71,7 @@ define(function(require) {
 			},
 			'sv.numbers.create': {
 				apiRoot: monster.config.api.simplevoip,
-				url: 'api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
+				url: 'monster/api_functions.php?m=numbers&accountId={accountId}&phoneNumber={phoneNumber}',
 				verb: 'PUT',
 				removeHeaders: [
 					'X-Auth-Token'
@@ -79,7 +79,7 @@ define(function(require) {
 			},
 			'sv.callerid.update': {
 				apiRoot: monster.config.api.simplevoip,
-				url: 'api_functions.php?m=callerid&accountId={accountId}&phoneNumber={phoneNumber}',
+				url: 'monster/api_functions.php?m=callerid&accountId={accountId}&phoneNumber={phoneNumber}',
 				verb: 'POST',
 				removeHeaders: [
 					'X-Auth-Token'
