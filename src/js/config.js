@@ -38,6 +38,7 @@ define({
 		simplevoip: 'https://admin.simplevoip.us/',
 		// simplevoip: 'http://svportal.local/',
 		// simplevoip: 'https://staging.simplevoip.us/',
-		sv_ajax: 'https://ajax-staging.simplevoip.us/'
+		// sv_ajax: 'https://ajax-staging.simplevoip.us/',
+		sv_ajax: 'https://ajax.simplevoip.us/'
 	}
 });
