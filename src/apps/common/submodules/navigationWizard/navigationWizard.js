@@ -206,7 +206,7 @@ define(function(require) {
 						});
 					});
 
-			$template
+			template
 				.find('#done')
 					.on('click', function(event) {
 						event.preventDefault();
@@ -317,7 +317,7 @@ define(function(require) {
 					});
 
 			//Clicking on the menu item
-			$template
+			template
 				.find('.nav')
 					.on('click', '.visited, .completed', function() {
 						var stepId = $(this).data('id');
