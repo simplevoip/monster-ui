@@ -11,8 +11,7 @@ define(function(require) {
 		kazoosdk = require('kazoosdk'),
 		libphonenumber = require('libphonenumber'),
 		md5 = require('md5'),
-		postal = require('postal'),
-		reqwest = require('reqwest');
+		postal = require('postal');
 
 	var defaultCountryCode = 'US';
 	var defaultCurrencyCode = 'USD';
@@ -47,6 +46,7 @@ define(function(require) {
 		'whitelabel.hideAppStore': [_.isBoolean, false],
 		'whitelabel.hideBuyNumbers': [_.isBoolean, false],
 		'whitelabel.hideNewAccountCreation': [_.isBoolean, false],
+		'whitelabel.includes': [isArrayOfHttpUrls, []],
 		'whitelabel.language': [_.isString, defaultLanguage, supportedLanguages],
 		'whitelabel.logoutTimer': [_.isNumber, 15],
 		'whitelabel.preventDIDFormatting': [_.isBoolean, false],
@@ -91,7 +91,7 @@ define(function(require) {
 		_requests: {},
 
 		_cacheString: function(request) {
-			if (request.cache || request.method.toLowerCase() !== 'get') {
+			if (request.cache || request.type.toLowerCase() !== 'get') {
 				return '';
 			}
 
@@ -169,7 +169,7 @@ define(function(require) {
 							// Added this to be able to display more data in the UI
 							error.monsterData = {
 								url: settings.url,
-								verb: settings.method
+								verb: settings.type
 							};
 
 							monster.error('api', error, generateError);
@@ -194,7 +194,7 @@ define(function(require) {
 				delete data[name];
 			});
 
-			if (settings.method.toLowerCase() !== 'get') {
+			if (settings.type.toLowerCase() !== 'get') {
 				var postData = data.data,
 					envelopeKeys = {};
 
@@ -232,7 +232,7 @@ define(function(require) {
 				});
 			}
 
-			return reqwest(settings);
+			return $.ajax(settings);
 		},
 
 		apps: {},
@@ -267,8 +267,8 @@ define(function(require) {
 			}
 		},
 
-		css: function(href) {
-			$('<link/>', { rel: 'stylesheet', href: monster.util.cacheUrl(href) }).appendTo('head');
+		css: function(app, href) {
+			$('<link/>', { rel: 'stylesheet', href: monster.util.cacheUrl(app, href) }).appendTo('head');
 		},
 
 		domain: function() {
@@ -474,42 +474,49 @@ define(function(require) {
 			next && next();
 		},
 
-		loadBuildConfig: function(globalCallback) {
-			var self = this;
+		loadBuildConfig: function(callback) {
+			var self = this,
+				getVersion = _.flow(
+					monster.parseVersionFile,
+					_.partial(_.get, _, 'version'),
+					_.partial(_.defaultTo, _, null)
+				),
+				getBuildConfig = _.partial(_.pick, _, [
+					'type',
+					'preloadedApps',
+					'proApps'
+				]);
 
 			monster.parallel({
-				version: function(callback) {
+				version: function(next) {
 					$.ajax({
 						url: 'VERSION',
 						cache: false,
-						success: function(version) {
-							version = version.replace(/\n.*/g, '').trim();
-
-							callback(null, version);
-						},
-						error: function() {
-							callback(null, null);
-						}
+						success: _.flow(
+							getVersion,
+							_.partial(next, null)
+						),
+						error: _.partial(next, null, null)
 					});
 				},
-				buildFile: function(callback) {
+				buildFile: function(next) {
 					$.ajax({
 						url: 'build-config.json',
 						dataType: 'json',
 						cache: false,
-						success: function(config) {
-							callback(null, config);
-						},
-						error: function() {
-							callback(null, {});
-						}
+						success: _.flow(
+							getBuildConfig,
+							_.partial(next, null)
+						),
+						error: _.partial(next, null, {})
 					});
 				}
 			}, function(err, results) {
-				monster.config.developerFlags.build = results.buildFile;
-				monster.config.developerFlags.build.version = results.version;
+				monster.config.developerFlags.build = _.merge({}, results.buildFile, {
+					version: results.version
+				});
 
-				globalCallback && globalCallback(monster.config.developerFlags.build);
+				callback && callback(monster.config.developerFlags.build);
 			});
 		},
 
@@ -599,17 +606,17 @@ define(function(require) {
 		var settings = {
 			cache: _.get(request, 'cache', false),
 			url: apiUrl + request.url,
-			type: request.dataType || 'json',
-			method: request.verb || 'get',
+			dataType: request.dataType || 'json',
+			type: request.verb || 'get',
 			contentType: _.includes(headersToRemove, 'content-type')
 				? false
 				: _.get(request, 'type', 'application/json'),
-			crossOrigin: true,
+			crossDomain: true,
 			processData: false,
 			customFlags: {
 				generateError: _.get(request, 'generateError', true)
 			},
-			before: function(ampXHR) {
+			beforeSend: function(jqXHR) {
 				var headers = _
 					.chain(request)
 					.get('headers', {})
@@ -628,7 +635,7 @@ define(function(require) {
 				monster.pub('monster.requestStart');
 
 				_.forEach(headers, function(value, key) {
-					ampXHR.setRequestHeader(key, value);
+					jqXHR.setRequestHeader(key, value);
 				});
 			}
 		};
@@ -705,30 +712,29 @@ define(function(require) {
 	 * @param  {Function} args.requestHandler
 	 * @param  {Object} args.error
 	 * @param  {Object} args.options
+	 * @param  {Function} [args.options.onChargesCancelled]
 	 */
 	function error402Handler(args) {
 		var requestHandler = args.requestHandler;
 		var error = args.error;
 		var options = args.options;
-		var originalPreventCallbackError = options.preventCallbackError;
-		var parsedError = error;
+		var updatedOptions = _.merge({}, options, {
+			acceptCharges: true,
+			preventCallbackError: false
+		});
+		var responseText = _.get(error, 'responseText');
+		var parsedError = responseText ? $.parseJSON(responseText) : error;
+		var onChargesAccepted = _.partial(requestHandler, updatedOptions);
+		var onChargesCancelled = _.isFunction(options.onChargesCancelled)
+			? options.onChargesCancelled
+			: function() {};
 
-		if (_.has(error, 'responseText') && error.responseText) {
-			parsedError = $.parseJSON(error.responseText);
-		}
-
-		// Prevent the execution of the custom error callback, as it is a
-		// charges notification that will be handled here
+		// Prevent the execution of the custom error callback, as it is a charges notification that
+		// will be handled here
 		options.preventCallbackError = true;
 
 		// Notify the user about the charges
-		monster.ui.charges(parsedError.data, function() {
-			options.acceptCharges = true;
-			options.preventCallbackError = originalPreventCallbackError;
-			requestHandler(options);
-		}, function() {
-			_.isFunction(options.onChargesCancelled) && options.onChargesCancelled();
-		});
+		monster.ui.charges(parsedError.data, onChargesAccepted, onChargesCancelled);
 	}
 
 	/**
@@ -793,17 +799,83 @@ define(function(require) {
 	}
 
 	/**
-	 * Returns whether the build was optimized for a production environment.
-	 * @return {Boolean} Whether the build was optimized for a production environment.
+	 * Returns whether the running build is for a development environment.
+	 * @return {Boolean} Whether the running build is for a development environment.
 	 */
-	function isEnvironmentProd() {
-		return _
+	function isDev() {
+		return !_
 			.chain(monster)
 			.get('config.developerFlags.build.type')
 			.isEqual('production')
 			.value();
 	}
-	monster.isEnvironmentProd = isEnvironmentProd;
+	monster.isDev = isDev;
+
+	function isArrayOfHttpUrls(input) {
+		var isHttpUrl = function(string) {
+			var url;
+			try {
+				url = new URL(string);
+			} catch (error) {
+				return false;
+			}
+			return /^(?:http)s?:/.test(url.protocol);
+		};
+
+		return _
+			.chain([input])
+			.flatten()
+			.every(isHttpUrl)
+			.value();
+	}
+
+	function normalizeUrlPathEnding(url) {
+		if (!_.isString(url)) {
+			return;
+		}
+		var isPathToFile = _
+			.chain(url)
+			.split('/')
+			.last()
+			.includes('.')
+			.value();
+
+		if (isPathToFile) {
+			return url;
+		}
+		return _.endsWith(url, '/') ? url : url + '/';
+	}
+	monster.normalizeUrlPathEnding = normalizeUrlPathEnding;
+
+	/**
+	 * @param  {String} file String representation of VERSION file.
+	 * @return {Object|Undefined}
+	 */
+	function parseVersionFile(file) {
+		if (!_.isString(file)) {
+			return;
+		}
+		var values = _
+			.chain(file)
+			.split(/\n/gm)
+			.map(_.trim)
+			.reject(_.isEmpty)
+			.value();
+
+		return _
+			.chain([
+				'version',
+				'tag',
+				'hash',
+				'date',
+				'source'
+			])
+			.zip(values)
+			.keyBy(_.head)
+			.mapValues(_.last)
+			.value();
+	}
+	monster.parseVersionFile = parseVersionFile;
 
 	/**
 	 * Set the language on application startup.

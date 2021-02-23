@@ -20,77 +20,187 @@ define(function(require) {
 		 * @param {Array} args.options
 		 * @param {Array} args.mimeTypes - Allowed file formats to be uploaded if `dragableUpload` is true
 		 * @param {Boolean} [args.dragableUpload]
+		 * @param {Boolean} [args.enableTTS] - Show text to speech tab
+		 * @param {String} args.selectedOption - The current media id
+		 * @param {Object} [args.tts] - Options required if enableTTS is true
+		 * @param {String} [args.tts.entity] - Displayed in the tts tab instructions
+		 * @param {String} [args.tts.name] - The tts media name
+		 * @param {String} [args.tts.type] - The tts media type
+		 * @param {Boolean} [args.required] - If `true`, a valid media ID should be selected, `none` media isn't allowed
 		 */
 		mediaSelectRender: function(args) {
 			var self = this,
 				container = args.container,
 				callback = args.callback,
-				formattedData = self.mediaSelectFormatData(args),
-				template = self.mediaSelectGetSkinnedTemplate(args, formattedData);
+				initTemplate = function initTemplate(results) {
+					args.options = results.medias;
+					args.selectedMedia = results.media;
 
-			container
-				.empty()
-				.append(template);
+					var formattedData = self.mediaSelectFormatData(args),
+						template = self.mediaSelectGetSkinnedTemplate(args, formattedData);
 
-			callback && callback({
-				getValue: function() {
-					return self.mediaSelectGetValue(template, args);
-				}
+					callback && callback({
+						getValue: function(callback) {
+							var mediaForm = template.find('#select_media_form');
+
+							if (args.required) {
+								if (monster.ui.valid(mediaForm)) {
+									if (args.enableTTS) {
+										self.mediaSelectGetValue(template, _.merge({}, args, {
+											callback: callback
+										}));
+									} else {
+										return self.mediaSelectGetValue(template, args);
+									}
+								}
+
+								return;
+							}
+
+							if (args.enableTTS) {
+								self.mediaSelectGetValue(template, _.merge({}, args, {
+									callback: callback
+								}));
+							} else {
+								return self.mediaSelectGetValue(template, args);
+							}
+						}
+					});
+
+					return template;
+				},
+				afterInsert = function afterInsert() {
+					if (args.selectedMedia.media_source === 'tts') {
+						$('.monster-media-tabs-skin .navbar-menu-item a.active').removeClass('active');
+						$('.monster-media-tabs-skin .monster-tab-content.active').removeClass('active');
+
+						$('.monster-media-tabs-skin [data-tab="text_to_speech"]').addClass('active');
+					}
+				};
+
+			monster.ui.insertTemplate(container, function(insertTemplateCallback) {
+				monster.parallel({
+					media: function(cb) {
+						if (_.isEmpty(args.selectedOption)) {
+							cb(null, {});
+							return;
+						}
+
+						self.callApi({
+							resource: 'media.get',
+							data: {
+								accountId: self.accountId,
+								mediaId: args.selectedOption,
+								generateError: false
+							},
+							success: function(data) {
+								cb(null, data.data);
+							},
+							error: function(err) {
+								cb(null, {});
+							}
+						});
+					},
+					medias: function(cb) {
+						if (_.isArray(args.options)) {
+							return cb(null, args.options);
+						}
+
+						self.callApi({
+							resource: 'media.list',
+							data: {
+								accountId: self.accountId,
+								generateError: false
+							},
+							success: function(data) {
+								cb(null, data.data);
+							},
+							error: function(err) {
+								cb(null);
+							}
+						});
+					}
+				}, function(error, results) {
+					insertTemplateCallback(initTemplate(results), afterInsert);
+				});
 			});
 		},
 
 		mediaSelectFormatData: function(args) {
 			var self = this,
+				getDefaultEntities = function(args) {
+					var orderedDefaultEntityTypes = [
+							'none',
+							'silence',
+							'shoutcast'
+						],
+						defaultEntitiesPerType = {
+							none: {
+								id: 'none',
+								name: _.get(args, 'noneLabel', self.i18n.active().mediaSelect.noneLabel),
+								shouldRender: _.get(args, 'hasNone', true)
+							},
+							silence: {
+								id: 'silence_stream://300000',
+								name: self.i18n.active().mediaSelect.silence,
+								shouldRender: _.get(args, 'hasSilence', true)
+							},
+							shoutcast: {
+								id: 'shoutcast',
+								name: self.i18n.active().mediaSelect.shoutcastURL,
+								shouldRender: _.get(args, 'hasShoutcast', true)
+							}
+						},
+						getDefaultEntity = _.partial(_.get, defaultEntitiesPerType),
+						pickIdAndNameProps = _.partial(_.pick, _, [
+							'id',
+							'name'
+						]);
+
+					return _
+						.chain(orderedDefaultEntityTypes)
+						.map(getDefaultEntity)
+						.reject({ shouldRender: false })
+						.map(pickIdAndNameProps)
+						.value();
+				},
+				getMediaEntities = function(entities) {
+					return entities.sort(function(a, b) {
+						return a.name.localeCompare(b.name, monster.config.whitelabel.language);
+					});
+				},
+				isSilence = _.partial(_.isEqual, 'silence_stream://300000'),
+				isShoutcast = _.overEvery(
+					_.partial(_.includes, _, '://'),
+					_.negate(isSilence)
+				),
+				isSelectedOptionShoutcast = _.partial(isShoutcast, _.get(args, 'selectedOption')),
 				defaultData = {
 					showMediaUploadDisclosure: monster.config.whitelabel.showMediaUploadDisclosure,
-					noneLabel: self.i18n.active().mediaSelect.noneLabel,
 					selectedOption: false,
 					uploadButton: true,
 					options: [],
-					name: undefined,
+					name: 'mediaId',
 					uploadLabel: self.i18n.active().upload,
 					label: args.hasOwnProperty('label') ? args.label : self.i18n.active().mediaSelect.defaultLabel,
-					hasNone: true,
-					hasShoutcast: true,
-					hasSilence: true,
 					isShoutcast: false,
-					shoutcastURLInputClass: ''
+					shoutcastURLInputClass: '',
+					tts: args.tts,
+					mediaId: args.selectedOption,
+					selectedMedia: null
 				},
-				formattedData = $.extend(true, {}, defaultData, args),
-				optionShoutcast = {
-					id: 'shoutcast',
-					name: self.i18n.active().mediaSelect.shoutcastURL
-				},
-				optionNone = {
-					id: 'none',
-					name: formattedData.noneLabel
-				},
-				optionSilence = {
-					id: 'silence_stream://300000',
-					name: self.i18n.active().mediaSelect.silence
-				},
-				isShoutcast = formattedData.selectedOption && formattedData.selectedOption.indexOf('://') >= 0 && formattedData.selectedOption !== 'silence_stream://300000',
-				options = [];
+				formattedData = $.extend(true, {}, defaultData, args);
 
-			if (formattedData.hasNone) {
-				options.push(optionNone);
-			}
+			formattedData.options = _.concat(
+				getDefaultEntities(args),
+				getMediaEntities(args.options)
+			);
 
-			if (formattedData.hasSilence) {
-				options.push(optionSilence);
-			}
-
-			if (formattedData.hasShoutcast) {
-				options.push(optionShoutcast);
-			}
-
-			formattedData.options = options.concat(args.options);
-
-			if (isShoutcast) {
-				formattedData.isShoutcast = isShoutcast;
+			if (isSelectedOptionShoutcast()) {
+				formattedData.isShoutcast = true;
 				formattedData.shoutcastValue = formattedData.selectedOption;
 				formattedData.selectedOption = 'shoutcast';
-			}
+			};
 
 			return formattedData;
 		},
@@ -98,6 +208,8 @@ define(function(require) {
 		mediaSelectGetSkinnedTemplate: function(args, formattedData) {
 			var self = this,
 				skin = args.hasOwnProperty('skin') ? args.skin : 'default',
+				mediaSource = _.get(formattedData, 'selectedMedia.media_source', null),
+				enableTextspeechTab = args.enableTTS || mediaSource === 'tts',
 				template;
 
 			if (skin === 'default') {
@@ -113,17 +225,51 @@ define(function(require) {
 			} else if (skin === 'tabs') {
 				template = $(self.getTemplate({
 					name: 'tabs-layout',
-					data: formattedData,
+					data: _.merge({}, formattedData, {
+						enableTextspeechTab: enableTextspeechTab,
+						ttsInfo: self.getTemplate({
+							name: '!' + self.i18n.active().mediaSelect.textToSpeech.info,
+							data: {
+								entity: _.get(args, 'tts.entity', '<Entity>')
+							},
+							submodule: 'mediaSelect'
+						})
+					}),
 					submodule: 'mediaSelect'
 				}));
+
+				var mediaForm = template.find('#select_media_form');
+
+				monster.ui.charsRemaining(template.find('.custom-greeting-text'), {
+					size: 350,
+					customClass: 'chars-remaining-counter'
+				});
+
+				monster.ui.validate(mediaForm, {
+					rules: {
+						'extra.shoutcastUrl': {
+							required: true
+						},
+						'mediaId': {
+							required: true,
+							regex: /^(?!none$)/
+						}
+					},
+					messages: {
+						mediaId: self.i18n.active().mediaSelect.invalidMedia
+					}
+				});
+
 				self.mediaSelectBindTabsTemplate(template);
 			}
 
 			return template;
 		},
 
-		mediaSelectGetValue: function(template) {
+		mediaSelectGetValue: function(template, args) {
 			var self = this,
+				ttsTab = template.find('.monster-tab-content.monster-tab-content-tts.active'),
+				callback = args.callback,
 				response;
 
 			if (template) {
@@ -131,14 +277,38 @@ define(function(require) {
 
 				if (val === 'shoutcast') {
 					response = template.find('.shoutcast-div input').val();
+				} else if (ttsTab.length && callback) {
+					var ttsText = ttsTab.find('.custom-greeting-text').val();
+
+					if (_.isEmpty(ttsText)) {
+						return;
+					}
+
+					args.selectedMedia = _.merge({}, {
+						tts: {
+							text: ttsText
+						}
+					});
+
+					self.mediaSelectUpdateTTSMedia(args, callback);
 				} else {
 					response = val;
+				}
+
+				if (args.selectedMedia.media_source === 'tts' && !ttsTab.length) {
+					self.deleteTTSMedia(args.selectedMedia.id);
 				}
 			} else {
 				response = 'invalid_template';
 			}
 
-			return response;
+			if (args.enableTTS) {
+				if (!ttsTab.length) {
+					callback(response);
+				};
+			} else {
+				return response;
+			}
 		},
 
 		mediaSelectBindCommon: function(template, mediaToUpload, callbackAfterSave, mimeTypes) {
@@ -294,6 +464,67 @@ define(function(require) {
 			monster.ui.fancyTabs(template.find('.monster-tab-wrapper'));
 
 			self.mediaSelectBindCommon(template, mediaToUpload);
+		},
+
+		deleteTTSMedia: function(mediaId) {
+			var self = this;
+
+			self.callApi({
+				resource: 'media.delete',
+				bypassProgressIndicator: true,
+				data: {
+					accountId: self.accountId,
+					mediaId: mediaId
+				}
+			});
+		},
+
+		mediaSelectUpdateTTSMedia: function(args, callback) {
+			var self = this,
+				greetingMedia = {
+					description: '<Text to Speech>',
+					media_source: 'tts',
+					name: _.get(args, 'tts.name', '<Text to Speech>'),
+					streamable: true,
+					type: _.get(args, 'tts.type', ''),
+					tts: {
+						text: args.selectedMedia.tts.text,
+						voice: 'female/en-US'
+					}
+				};
+
+			if (args.selectedMedia.id && args.selectedMedia.media_source === 'tts') {
+				self.callApi({
+					resource: 'media.update',
+					data: {
+						accountId: self.accountId,
+						mediaId: args.selectedMedia.id,
+						data: greetingMedia
+					},
+					success: function(data) {
+						callback && callback(data.data.id);
+					},
+					error: function() {
+						monster.ui.alert(self.i18n.active().mediaSelect.textToSpeech.errors.update);
+						callback && callback(null);
+					}
+				});
+			} else {
+				return self.callApi({
+					resource: 'media.create',
+					data: {
+						accountId: self.accountId,
+						data: greetingMedia
+					},
+					success: function(data) {
+						callback && callback(data.data.id);
+					},
+					error: function() {
+						monster.ui.alert(self.i18n.active().mediaSelect.textToSpeech.errors.create);
+						callback && callback(null);
+					}
+				});
+			}
 		}
 	};
 
