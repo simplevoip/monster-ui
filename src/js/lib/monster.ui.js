@@ -1361,7 +1361,7 @@ define(function(require) {
 						},
 						message: _.flow(
 							_.partial(getRuleMessageForPlural, 'other'),
-							_.partial(_.defaultTo, _, getRuleMessageForOne('listOf'))
+							_.partial(_.defaultTo, getRuleMessageForOne('listOf'))
 						)
 					},
 					lowerThan: function(value, element, param) {
@@ -1383,12 +1383,7 @@ define(function(require) {
 						return this.optional(element) || isValid;
 					},
 					phoneNumber: function(value, element) {
-						return this.optional(element) || _
-							.chain([value])
-							.flatten()
-							.map(monster.util.getFormatPhoneNumber)
-							.every('isValid')
-							.value();
+						return this.optional(element) || monster.util.getFormatPhoneNumber(value).isValid;
 					},
 					protocols: {
 						method: function(value, element, protocols) {
@@ -3737,7 +3732,7 @@ define(function(require) {
 	 * loading view until the callback is called.
 	 * @param  {jQuey Object}   $container target where to insert the template
 	 * @param  {jQuery|Function} template   template or callback providing the template
-	 * @param  {Object}   pOptions   loading view options
+	 * @param  {Object}   pOptions   loading view options 3639:1  error  eslint:no-multiple-empty-lines  More than 1 blank line not allowed.
 	 */
 	function insertTemplate($container, template, pOptions) {
 		var coreApp = monster.apps.core,
