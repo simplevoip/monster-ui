@@ -34,7 +34,8 @@ define({
 		}
 	},
 	api: {
-		'default': 'https://portal.simplevoip.us:8443/v2/',
+		// 'default': 'https://portal.simplevoip.us:8443/v2/',
+		'default': 'https://sandbox.2600hz.com:8443/v2/',
 		// simplevoip: 'https://admin.simplevoip.us/',
 		// simplevoip: 'http://svportal.local/',
 		simplevoip: 'https://staging.simplevoip.us/',
