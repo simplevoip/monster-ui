@@ -3,28 +3,31 @@ define(function(require) {
 		_ = require('lodash'),
 		monster = require('monster'),
 		Handlebars = require('handlebars'),
-		bhotkeys = require('hotkeys'),
 		Toastr = require('toastr'),
-		validate = require('validate'),
-		wysiwyg = require('wysiwyg'),
-		timepicker = require('timepicker'),
 		introJs = require('introJs'),
-		mask = require('mask'),
 		renderJSON = require('renderjson'),
 		footable = require('footable'),
-		mousetrap = require('mousetrap'),
+		form2object = require('form2object'),
+		Mousetrap = require('mousetrap'),
 		Drop = require('drop'),
 		Clipboard = require('clipboard'),
 		moment = require('moment'),
-		simplemde = require('simplemde'),
-		marked = require('marked');
+		SimpleMDE = require('simplemde'),
+		marked = require('marked'),
+		Popup = require('popup-redirect'),
 		JSONEditor = require('jsoneditor');
 
+	// Import for side effects only
 	require('chosen');
 	require('disableAutoFill');
+	require('hotkeys');
 	require('image-select');
+	require('mask');
 	require('moment-timezone');
 	require('monthpicker');
+	require('timepicker');
+	require('validate');
+	require('wysiwyg');
 
 	function initializeHandlebarsHelper() {
 		Handlebars.registerHelper({
@@ -58,15 +61,15 @@ define(function(require) {
 				}
 
 				operators = {
-					'==': function(a, b) { return a == b; },
+					'==': function(a, b) { return a == b; }, // eslint-disable-line eqeqeq
 					'===': function(a, b) { return a === b; },
-					'!=': function(a, b) { return a != b; },
+					'!=': function(a, b) { return a != b; }, // eslint-disable-line eqeqeq
 					'!==': function(a, b) { return a !== b; },
 					'<': function(a, b) { return a < b; },
 					'>': function(a, b) { return a > b; },
 					'<=': function(a, b) { return a <= b; },
 					'>=': function(a, b) { return a >= b; },
-					'typeof': function(a, b) { return typeof a === b; }
+					'typeof': function(a, b) { return typeof a === b; } // eslint-disable-line valid-typeof
 				};
 
 				if (!operators[operator]) {
@@ -468,49 +471,6 @@ define(function(require) {
 	}
 
 	var ui = {
-		/**
-		 * Show a loading view if a request starts before inoking the callback
-		 * to insert a template in the container once all requests finish
-		 * @param  {jQuey Object}   $container target where to insert the template
-		 * @param  {Function} callback   callback sending the template
-		 * @param  {Object}   pOptions   loading view options
-		 */
-		insertTemplate: function($container, callback, pOptions) {
-			var coreApp = monster.apps.core,
-				options = $.extend(true, {
-					hasBackground: true,
-					title: coreApp.i18n.active().insertTemplate.title,
-					text: coreApp.i18n.active().insertTemplate.text,
-					duration: 250
-				}, pOptions),
-				dataToTemplate = {
-					hasBackground: options.hasBackground,
-					cssClass: options.cssClass,
-					cssId: options.cssId,
-					title: options.title,
-					text: options.text
-				},
-				loadingTemplate = monster.template(coreApp, 'monster-insertTemplate', dataToTemplate),
-				appendTemplate = function(template, insertTemplateCallback, fadeInCallback) {
-					$container
-						.empty()
-						.hide()
-						.append(template)
-						.fadeIn(options.duration, function() {
-							fadeInCallback && fadeInCallback();
-						});
-
-					insertTemplateCallback && insertTemplateCallback();
-				};
-
-			callback(appendTemplate);
-
-			// Only insert the loading template if a request is in progress
-			if (monster.apps.core.request.active) {
-				appendTemplate(loadingTemplate);
-			}
-		},
-
 		// When the developer wants to use steps, he can just send an object like { range: 'max', steps: [30,3600,18880], value: 30 }
 		// for the options, and this tool will take care of the standard configuration, with no need to provide the "step", "min" or "max" options.
 		slider: function(target, pOptions) {
@@ -1155,7 +1115,7 @@ define(function(require) {
 					options,
 					'startDate',
 					today
-					),
+				),
 				endDate = moment(initDate).tz(timezone).endOf('day');
 
 			if (options.startDate) {
@@ -1222,7 +1182,7 @@ define(function(require) {
 					// Set the max date to be as far as possible from the min date (We take the dateMaxRange unless it's after "today", we don't want users to search in the future)
 					dateMax = minMoment.isAfter(today) ? today.toDate() : minMoment.toDate();
 				} else if (input.id === 'startDate') {
-					dateMin = moment({years: 2011}).startOf('year').toDate();
+					dateMin = moment({ years: 2011 }).startOf('year').toDate();
 					dateMax = moment().toDate();
 				}
 
@@ -1320,89 +1280,177 @@ define(function(require) {
 		customValidationInitialized: false,
 
 		initCustomValidation: function() {
-			var localization = monster.apps.core.i18n.active().validation,
-				addSimpleRule = function(name, regex) {
-					$.validator.addMethod(name, function(value, element) {
-						return this.optional(element) || regex.test(value);
-					}, localization.customRules[name]);
+			var validationI18n = monster.apps.core.i18n.active().validation,
+				defaultRulesI18n = _.get(validationI18n, 'defaultRules'),
+				getRuleI18n = _.partial(function(i18n, ruleId) {
+					return _
+						.chain([
+							'customRules',
+							'defaultRules'
+						])
+						.map(_.flow(
+							_.partial(_.ary(_.concat, 2), _, ruleId),
+							_.partial(_.get, i18n)
+						))
+						.find(_.negate(_.isUndefined))
+						.value();
+				}, validationI18n),
+				getRuleMessageForPlural = function(plural, ruleId) {
+					return _
+						.chain(ruleId)
+						.thru(getRuleI18n)
+						.get(plural)
+						.value();
 				},
-				defaultMessages = {};
+				getRuleMessageForOne = _.flow(
+					_.over([
+						_.partial(getRuleMessageForPlural, 'one'),
+						getRuleI18n
+					]),
+					_.partial(_.find, _, _.isString)
+				),
+				regexBasedRules = {
+					mac: /^(?:[0-9A-F]{2}(:|-))(?:[0-9A-F]{2}\1){4}[0-9A-F]{2}$/i,
+					ipv4: /^(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)$/i,
+					time12h: /^((0?[1-9]|1[012])(:[0-5]\d){1,2}(\s?[AP]M))$/i,
+					time24h: /^(([01]?[0-9]|2[0-3])(:[0-5]\d){1,2})$/i,
+					realm: /^[0-9a-z.-]+$/,
+					hexadecimal: /^[0-9A-F]+$/i,
+					protocol: /:\/\//i
+				},
+				complexRules = {
+					checkList: function(value, element, listToCheck) {
+						if (_.isArray(listToCheck)) {
+							return listToCheck.indexOf(value) < 0;
+						} else if (_.isObject(listToCheck)) {
+							return !(value in listToCheck);
+						} else {
+							return true;
+						}
+					},
+					greaterDate: function(value, element, param) {
+						var target = _.isString(param) ? $(param) : param;
+						if (this.settings.onfocusout) {
+							target.unbind('.validate-greaterDate').bind('blur.validate-greaterDate', function() {
+								$(element).valid();
+							});
+						}
 
-			// Initializing default messages
-			_.each(localization.defaultRules, function(val, key) {
-				defaultMessages[key] = $.validator.format(val);
+						return parseInt(monster.util.timeToSeconds(value)) > parseInt(monster.util.timeToSeconds(target.val()));
+					},
+					greaterThan: function(value, element, param) {
+						var $compElement = param instanceof jQuery ? param : $(param),
+							compValue = $compElement.val(),
+							isLinkedFieldEmptyOrHidden = _.isEmpty(compValue) || !$compElement.is(':visible'),
+							isValid = _.toNumber(value) >= _.toNumber(compValue);
+
+						return this.optional(element) || isLinkedFieldEmptyOrHidden || isValid;
+					},
+					listOf: {
+						method: function(value, element, ruleId) {
+							var separator = ' ',
+								ruleValidator = _.get($.validator.methods, ruleId, _.stubFalse),
+								isValid = _.bind(ruleValidator, this, _, element);
+
+							return _
+								.chain(value)
+								.trim()
+								.split(separator)
+								.every(isValid)
+								.value();
+						},
+						message: _.flow(
+							_.partial(getRuleMessageForPlural, 'other'),
+							_.partial(_.defaultTo, _, getRuleMessageForOne('listOf'))
+						)
+					},
+					lowerThan: function(value, element, param) {
+						var $compElement = param instanceof jQuery ? param : $(param),
+							compValue = $compElement.val(),
+							isLinkedFieldEmptyOrHidden = _.isEmpty(compValue) || !$compElement.is(':visible'),
+							isValid = _.toNumber(value) <= _.toNumber(compValue);
+
+						return this.optional(element) || isLinkedFieldEmptyOrHidden || isValid;
+					},
+					notEqualTo: function(value, element, param) {
+						var $compElements = param instanceof jQuery ? param : $(param),
+							$compElementsToCheck = $compElements.filter(':visible').not(element),
+							$equalElements = $compElementsToCheck.filter(function() {
+								return $(this).val() === value;
+							}),
+							isValid = $equalElements.length === 0;
+
+						return this.optional(element) || isValid;
+					},
+					phoneNumber: function(value, element) {
+						return this.optional(element) || _
+							.chain([value])
+							.flatten()
+							.map(monster.util.getFormatPhoneNumber)
+							.every('isValid')
+							.value();
+					},
+					protocols: {
+						method: function(value, element, protocols) {
+							var pattern = '^(' + _.join(protocols, '|') + ')://',
+								regex = new RegExp(pattern, 'i'),
+								method = _.bind(getRegexBasedRuleMethod(regex), this);
+
+							return method(value, element);
+						},
+						message: function(protocols) {
+							return monster.apps.core.getTemplate({
+								name: '!' + getRuleMessageForOne('protocols'),
+								data: {
+									suite: _
+										.chain(protocols)
+										.map(_.toUpper)
+										.join(', ')
+										.value()
+								}
+							});
+						}
+					},
+					regex: function(value, element, regexpr) {
+						var method = _.bind(getRegexBasedRuleMethod(regexpr), this);
+
+						return method(value, element);
+					}
+				},
+				getRegexBasedRuleMethod = function(regex) {
+					return function(value, element) {
+						return this.optional(element) || regex.test(value);
+					};
+				},
+				getComplexRuleMethod = function(rule) {
+					return _.find([
+						rule,
+						_.get(rule, 'method')
+					], _.isFunction);
+				},
+				rules = _
+					.chain({})
+					.merge(regexBasedRules, complexRules)
+					.mapValues(function(rule, name) {
+						return {
+							name: name,
+							method: _.isRegExp(rule) ? getRegexBasedRuleMethod(rule) : getComplexRuleMethod(rule),
+							message: _.find([
+								_.get(rule, 'message'),
+								getRuleMessageForOne(name)
+							], _.negate(_.isUndefined))
+						};
+					})
+					.value();
+
+			$.extend($.validator.messages, _.mapKeys(defaultRulesI18n, _.flow(
+				getRuleMessageForOne,
+				$.validator.format
+			)));
+
+			_.forEach(rules, function(rule) {
+				$.validator.addMethod(rule.name, rule.method, rule.message);
 			});
-			$.extend($.validator.messages, defaultMessages);
-
-			// Adding simple custom rules
-			addSimpleRule('mac', /^(?:[0-9A-F]{2}(:|-))(?:[0-9A-F]{2}\1){4}[0-9A-F]{2}$/i);
-			addSimpleRule('ipv4', /^(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)\.(25[0-5]|2[0-4]\d|[01]?\d\d?)$/i);
-			addSimpleRule('time12h', /^((0?[1-9]|1[012])(:[0-5]\d){1,2}(\s?[AP]M))$/i);
-			addSimpleRule('time24h', /^(([01]?[0-9]|2[0-3])(:[0-5]\d){1,2})$/i);
-			addSimpleRule('realm', /^[0-9A-Z.-]+$/i);
-			addSimpleRule('hexadecimal', /^[0-9A-F]+$/i);
-			addSimpleRule('protocol', /:\/\//i);
-
-			// Adding advanced custom rules
-			$.validator.addMethod('greaterDate', function(value, element, param) {
-				var target = _.isString(param) ? $(param) : param;
-				if (this.settings.onfocusout) {
-					target.unbind('.validate-greaterDate').bind('blur.validate-greaterDate', function() {
-						$(element).valid();
-					});
-				}
-
-				return parseInt(monster.util.timeToSeconds(value)) > parseInt(monster.util.timeToSeconds(target.val()));
-			}, localization.customRules.greaterDate);
-
-			// Adding advanced custom rules
-			$.validator.addMethod('checkList', function(value, element, listToCheck) {
-				if (_.isArray(listToCheck)) {
-					return listToCheck.indexOf(value) < 0;
-				} else if (_.isObject(listToCheck)) {
-					return !(value in listToCheck);
-				} else {
-					return true;
-				}
-			}, localization.customRules.checkList);
-
-			// Adding advanced custom rules
-			$.validator.addMethod('regex', function(value, element, regexpr) {
-				return regexpr.test(value);
-			});
-
-			$.validator.addMethod('phoneNumber', function(value, element) {
-				return this.optional(element) || monster.util.getFormatPhoneNumber(value).isValid;
-			}, localization.customRules.phoneNumber);
-
-			$.validator.addMethod('lowerThan', function(value, element, param) {
-				var $compElement = param instanceof jQuery ? param : $(param),
-					compValue = $compElement.val(),
-					isLinkedFieldEmptyOrHidden = _.isEmpty(compValue) || !$compElement.is(':visible'),
-					isValid = _.toNumber(value) <= _.toNumber(compValue);
-
-				return this.optional(element) || isLinkedFieldEmptyOrHidden || isValid;
-			}, localization.customRules.lowerThan);
-
-			$.validator.addMethod('greaterThan', function(value, element, param) {
-				var $compElement = param instanceof jQuery ? param : $(param),
-					compValue = $compElement.val(),
-					isLinkedFieldEmptyOrHidden = _.isEmpty(compValue) || !$compElement.is(':visible'),
-					isValid = _.toNumber(value) >= _.toNumber(compValue);
-
-				return this.optional(element) || isLinkedFieldEmptyOrHidden || isValid;
-			}, localization.customRules.greaterThan);
-
-			$.validator.addMethod('notEqualTo', function(value, element, param) {
-				var $compElements = param instanceof jQuery ? param : $(param),
-					$compElementsToCheck = $compElements.filter(':visible').not(element),
-					$equalElements = $compElementsToCheck.filter(function() {
-						return $(this).val() === value;
-					}),
-					isValid = $equalElements.length === 0;
-
-				return this.optional(element) || isValid;
-			}, localization.customRules.notEqualTo);
 
 			this.customValidationInitialized = true;
 		},
@@ -1512,7 +1560,7 @@ define(function(require) {
 				throw TypeError('"options" is not a plain object');
 			}
 
-			return new simplemde(_.merge({
+			return new SimpleMDE(_.merge({
 				element: $target[0],
 				status: false,
 				autosave: false,
@@ -1914,9 +1962,7 @@ define(function(require) {
 		datepicker: function(target, options) {
 			var self = this,
 				datePickerFormat = 'mm/dd/yy',
-				userFormat = monster.hasOwnProperty('apps') && monster.apps.hasOwnProperty('auth') && monster.apps.auth.hasOwnProperty('currentUser')
-							&& monster.apps.auth.currentUser.hasOwnProperty('ui_flags') && monster.apps.auth.currentUser.ui_flags.hasOwnProperty('date_format')
-							? monster.apps.auth.currentUser.ui_flags.date_format : 'mdy';
+				userFormat = _.get(monster, 'apps.auth.currentUser.ui_flags.date_format', 'mdy');
 
 			if (userFormat === 'mdy') {
 				datePickerFormat = 'mm/dd/yy';
@@ -1952,11 +1998,9 @@ define(function(require) {
 		 */
 		timepicker: function(target, pOptions) {
 			var self = this,
-				is12hMode = monster.hasOwnProperty('apps') && monster.apps.hasOwnProperty('auth') && monster.apps.auth.hasOwnProperty('currentUser')
-							&& monster.apps.auth.currentUser.hasOwnProperty('ui_flags') && monster.apps.auth.currentUser.ui_flags.hasOwnProperty('twelve_hours_mode')
-							? monster.apps.auth.currentUser.ui_flags.twelve_hours_mode : false,
+				is12hMode = _.get(monster, 'apps.auth.currentUser.ui_flags.twelve_hours_mode', false),
 				defaultOptions = {
-					timeFormat: is12hMode ? 'g:ia' : 'G:i',
+					timeFormat: is12hMode ? 'g:i A' : 'G:i',
 					lang: monster.apps.core.i18n.active().timepicker
 				},
 				options = $.extend(true, {}, defaultOptions, pOptions);
@@ -2760,7 +2804,7 @@ define(function(require) {
 					level: options.hasOwnProperty('level') ? options.level : 4,
 					theme: options.hasOwnProperty('theme') && validThemes.indexOf(options.theme) >= 0 ? options.theme : 'light'
 				},
-				html = renderjson.set_show_to_level(finalOptions.level).set_sort_objects(finalOptions.sort)(data);
+				html = renderJSON.set_show_to_level(finalOptions.level).set_sort_objects(finalOptions.sort)(data);
 
 			$(html).addClass('theme-' + finalOptions.theme);
 
@@ -2828,7 +2872,7 @@ define(function(require) {
 						finalOptions.getData(filters, function(rows, data) {
 							loadedPages.push(rows);
 
-							filters.start_key = encodeURIComponent(data.next_start_key);
+							filters.start_key = data.next_start_key;
 							if (!data.hasOwnProperty('next_start_key') || data.next_start_key === data.start_key) {
 								allDataLoaded();
 							}
@@ -2930,20 +2974,6 @@ define(function(require) {
 				finalOptions = $.extend(true, defaults, options || {});
 
 			self.handleDisplayFootable(container, finalOptions);
-		},
-
-		formatIconApp: function(app) {
-			if (app && app.hasOwnProperty('name')) {
-				if (monster.appsStore.hasOwnProperty(app.name)) {
-					if (monster.appsStore[app.name].phase === 'beta') {
-						app.extraCssClass = 'beta-overlay-icon';
-					} else if (monster.appsStore[app.name].phase === 'alpha') {
-						app.extraCssClass = 'alpha-overlay-icon';
-					}
-				}
-			}
-
-			return app;
 		},
 
 		// Takes a file in parameter, and then outputs the PDF preview of that file in an iframe that's added to the container
@@ -3700,6 +3730,50 @@ define(function(require) {
 		return _.get(container, 'jsoneditor', null);
 	}
 	ui.getJsoneditor = getJsoneditor;
+
+
+	/**
+	 * Cleanly insert a template in a container by animating it and showing a
+	 * loading view until the callback is called.
+	 * @param  {jQuey Object}   $container target where to insert the template
+	 * @param  {jQuery|Function} template   template or callback providing the template
+	 * @param  {Object}   pOptions   loading view options
+	 */
+	function insertTemplate($container, template, pOptions) {
+		var coreApp = monster.apps.core,
+			options = _.merge({
+				hasBackground: true,
+				title: coreApp.i18n.active().insertTemplate.title,
+				text: coreApp.i18n.active().insertTemplate.text,
+				duration: 250
+			}, pOptions),
+			loadingTemplate = monster.template(coreApp, 'monster-insertTemplate', _.pick(options, [
+				'hasBackground',
+				'cssClass',
+				'cssId',
+				'title',
+				'text'
+			])),
+			appendTemplate = function(template, insertTemplateCallback, fadeInCallback) {
+				$container
+					.stop()
+					.empty()
+					.hide()
+					.append(template)
+					.fadeIn(options.duration, function() {
+						fadeInCallback && fadeInCallback();
+					});
+
+				insertTemplateCallback && insertTemplateCallback();
+			};
+
+		appendTemplate(template instanceof $ ? template : loadingTemplate);
+
+		if (_.isFunction(template)) {
+			template(appendTemplate);
+		}
+	}
+	ui.insertTemplate = insertTemplate;
 
 	/**
 	 * Create a new instance of jsoneditor

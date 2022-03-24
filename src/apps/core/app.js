@@ -103,7 +103,9 @@ define(function(require) {
 
 			container.append(mainTemplate);
 
-			self.loadAuth(); // do this here because subsequent apps are dependent upon core layout
+			monster.waterfall([
+				_.bind(self.loadIncludes, self)
+			], _.bind(self.loadAuth, self));
 		},
 
 		loadSVG: function() {
@@ -120,7 +122,7 @@ define(function(require) {
 			var self = this;
 
 			_.each(monster.config.whitelabel.additionalCss, function(path) {
-				monster.css('css/' + path);
+				monster.css(self, 'css/' + path);
 			});
 		},
 
@@ -140,10 +142,24 @@ define(function(require) {
 			monster.webphone.init();
 		},
 
+		loadIncludes: function(callback) {
+			var requireUrl = function(url, next) {
+					require([url], next, _.partial(_.ary(next, 1), null));
+				},
+				requireUrlFactory = function(url) {
+					return _.partial(requireUrl, url);
+				};
+
+			monster.series(_.map(
+				monster.config.whitelabel.includes,
+				requireUrlFactory
+			), callback);
+		},
+
 		loadAuth: function() {
 			var self = this;
 
-			monster.apps.load('auth', function(app) {
+			monster.apps.load('auth', function(err, app) {
 				app.render($('#monster_content'));
 			});
 		},
@@ -154,37 +170,29 @@ define(function(require) {
 		 */
 		showAppName: function(pName) {
 			var self = this,
+				apps = monster.util.listAppStoreMetadata('user'),
 				name = _.isString(pName) ? pName : monster.apps.getActiveApp(),
 				$navbar = $('.core-topbar'),
 				$current = $navbar.find('#main_topbar_current_app'),
+				app = _
+					.chain([{
+						name: 'myaccount',
+						label: self.i18n.active().controlCenter,
+						icon: monster.util.getAppIconPath({ name: 'myaccount' })
+					}])
+					.concat(apps)
+					.find({ name: name })
+					.value(),
 				$new = name !== 'appstore' ? $(self.getTemplate({
 					name: 'current-app',
-					data: _
-						.chain(monster.apps.auth.installedApps)
-						.concat([{
-							name: 'myaccount',
-							label: self.i18n.active().controlCenter
-						}])
-						.filter({ name: name })
-						.map(function(app) {
-							return _
-								.chain({
-									icon: monster.util.getAppIconPath(app)
-								})
-								.merge(app)
-								.thru(monster.ui.formatIconApp)
-								.value();
-						})
-						.find({ name: name })
-						.value()
+					data: app
 				})) : '';
 
-			$current.fadeOut(100, function() {
-				$current
-					.empty()
-					.append($new)
-					.fadeIn(100);
-			});
+			$current
+				.hide()
+				.empty()
+				.append($new)
+				.fadeIn(200);
 		},
 
 		isActiveAppPlugin: function isActiveAppPlugin(callback) {
@@ -223,7 +231,7 @@ define(function(require) {
 
 			monster.parallel(_.map(loggedInAppsToLoad, function(name) {
 				return function(callback) {
-					monster.apps.load(name, _.partial(callback, null));
+					monster.apps.load(name, callback);
 				};
 			}), function afterBaseAppsLoad(err, result) {
 				// If admin with no app, go to app store, otherwite, oh well...
@@ -348,7 +356,7 @@ define(function(require) {
 				var appName = $(this).find('#main_topbar_current_app_name').data('name');
 
 				if (appName === 'myaccount') {
-					monster.apps.load(appName, function(app) {
+					monster.apps.load(appName, function(err, app) {
 						app.renderDropdown(false);
 					});
 				} else {
@@ -688,139 +696,149 @@ define(function(require) {
 
 		initializeShortcuts: function(apps) {
 			var self = this,
-				shortcuts = [
-					{
-						category: 'general',
-						key: '?',
-						title: self.i18n.active().globalShortcuts.keys['?'].title,
-						callback: function() {
-							self.showShortcutsPopup();
-						}
-					},
-					{
-						category: 'general',
-						key: '@',
-						title: self.i18n.active().globalShortcuts.keys['@'].title,
-						callback: function() {
-							monster.pub('myaccount.renderDropdown');
-						}
-					},
-					{
-						adminOnly: true,
-						category: 'general',
-						key: 'a',
-						title: self.i18n.active().globalShortcuts.keys.a.title,
-						callback: function() {
-							self.toggleAccountToggle();
-						}
-					},
-					{
-						adminOnly: true,
-						category: 'general',
-						key: 'shift+m',
-						title: self.i18n.active().globalShortcuts.keys['shift+m'].title,
-						callback: function() {
-							self.restoreMasquerading({
-								callback: function() {
-									var currentApp = monster.apps.getActiveApp();
-									if (currentApp in monster.apps) {
-										monster.apps[currentApp].render();
+				isEnabled = _.partial(_.get, _, 'isEnabled', true),
+				shortcuts = _
+					.chain([
+						{
+							isEnabled: !monster.config.whitelabel.useDropdownApploader,
+							category: 'general',
+							key: '#',
+							title: self.i18n.active().globalShortcuts.keys['#'].title,
+							callback: function() {
+								monster.pub('apploader.toggle');
+							}
+						},
+						{
+							category: 'general',
+							key: '?',
+							title: self.i18n.active().globalShortcuts.keys['?'].title,
+							callback: function() {
+								self.showShortcutsPopup();
+							}
+						},
+						{
+							category: 'general',
+							key: '@',
+							title: self.i18n.active().globalShortcuts.keys['@'].title,
+							callback: function() {
+								monster.pub('myaccount.renderDropdown');
+							}
+						},
+						{
+							adminOnly: true,
+							category: 'general',
+							key: 'a',
+							title: self.i18n.active().globalShortcuts.keys.a.title,
+							callback: function() {
+								self.toggleAccountToggle();
+							}
+						},
+						{
+							adminOnly: true,
+							category: 'general',
+							key: 'shift+m',
+							title: self.i18n.active().globalShortcuts.keys['shift+m'].title,
+							callback: function() {
+								self.restoreMasquerading({
+									callback: function() {
+										var currentApp = monster.apps.getActiveApp();
+										if (currentApp in monster.apps) {
+											monster.apps[currentApp].render();
+										}
+										self.hideAccountToggle();
 									}
-									self.hideAccountToggle();
-								}
-							});
+								});
+							}
+						},
+						{
+							adminOnly: true,
+							category: 'general',
+							key: 'shift+s',
+							title: self.i18n.active().globalShortcuts.keys['shift+s'].title,
+							callback: function() {
+								monster.util.protectSensitivePhoneNumbers();
+							}
+						},
+						{
+							category: 'general',
+							key: 'd',
+							title: self.i18n.active().globalShortcuts.keys.d.title,
+							callback: function() {
+								self.showDebugPopup();
+							}
+						},
+						{
+							category: 'general',
+							key: 'r',
+							title: self.i18n.active().globalShortcuts.keys.r.title,
+							callback: function() {
+								monster.routing.goTo('apps/' + monster.apps.getActiveApp());
+							}
+						},
+						{
+							category: 'general',
+							key: 'shift+l',
+							title: self.i18n.active().globalShortcuts.keys['shift+l'].title,
+							callback: function() {
+								monster.pub('auth.logout');
+							}
 						}
-					},
-					{
-						adminOnly: true,
-						category: 'general',
-						key: 'shift+s',
-						title: self.i18n.active().globalShortcuts.keys['shift+s'].title,
-						callback: function() {
-							monster.util.protectSensitivePhoneNumbers();
-						}
-					},
-					{
-						category: 'general',
-						key: 'd',
-						title: self.i18n.active().globalShortcuts.keys.d.title,
-						callback: function() {
-							self.showDebugPopup();
-						}
-					},
-					{
-						category: 'general',
-						key: 'r',
-						title: self.i18n.active().globalShortcuts.keys.r.title,
-						callback: function() {
-							monster.routing.goTo('apps/' + monster.apps.getActiveApp());
-						}
-					},
-					{
-						category: 'general',
-						key: 'shift+l',
-						title: self.i18n.active().globalShortcuts.keys['shift+l'].title,
-						callback: function() {
-							monster.pub('auth.logout');
-						}
-					}
-				];
+					])
+					.filter(isEnabled)
+					.concat(self.getGoToAppsShortcuts(apps))
+					.value();
 
-			if (!monster.config.whitelabel.hasOwnProperty('useDropdownApploader') || monster.config.whitelabel.useDropdownApploader === false) {
-				shortcuts.push({
-					category: 'general',
-					key: '#',
-					title: self.i18n.active().globalShortcuts.keys['#'].title,
-					callback: function() {
-						monster.pub('apploader.toggle');
-					}
-				});
-			}
-
-			_.each(shortcuts, function(shortcut) {
-				monster.ui.addShortcut(shortcut);
-			});
-
-			self.addShortcutsGoToApps(apps);
+			_.forEach(shortcuts, _.bind(monster.ui.addShortcut, monster.ui));
 		},
 
 		showDebugPopup: function() {
+			if ($('.debug-dialog').length) {
+				return;
+			}
 			var self = this,
 				acc = monster.apps.auth.currentAccount,
-				socketInfo = monster.socket.getInfo();
+				socketInfo = monster.socket.getInfo(),
+				activeApp = monster.apps.getActiveApp(),
+				dataTemplate = {
+					account: acc,
+					authToken: self.getAuthToken(),
+					apiUrl: self.apiUrl,
+					version: _.merge({
+						kazoo: monster.config.developerFlags.kazooVersion
+					}, !monster.isDev() && {
+						app: self.getTemplate({
+							name: '!' + self.i18n.active().debugAccountDialog.versioning.app.pattern,
+							data: {
+								app: activeApp,
+								version: _.get(monster.apps, [activeApp, 'data', 'version'])
+							}
+						}),
+						monster: monster.util.getVersion()
+					}),
+					hideURLs: monster.util.isWhitelabeling() && !monster.util.isSuperDuper(),
+					socket: _.pick(socketInfo, [
+						'isConfigured',
+						'isConnected',
+						'uri'
+					])
+				},
+				template = $(self.getTemplate({
+					name: 'dialog-accountInfo',
+					data: dataTemplate
+				}));
 
-			if (!$('.debug-dialog').length) {
-				var dataTemplate = {
-						account: acc,
-						authToken: self.getAuthToken(),
-						apiUrl: self.apiUrl,
-						version: monster.util.getVersion(),
-						hideURLs: monster.util.isWhitelabeling() && !monster.util.isSuperDuper(),
-						socket: _.pick(socketInfo, [
-							'isConfigured',
-							'isConnected',
-							'uri'
-						]),
-						kazooVersion: monster.config.developerFlags.kazooVersion
-					},
-					template = $(self.getTemplate({
-						name: 'dialog-accountInfo',
-						data: dataTemplate
-					}));
-
-				template.find('.copy-clipboard').each(function() {
-					var $this = $(this);
-					monster.ui.clipboard($this, function() {
-						return $this.siblings('.to-copy').html();
-					});
+			template.find('.copy-clipboard').each(function() {
+				var $this = $(this);
+				monster.ui.clipboard($this, function() {
+					return $this.siblings('.to-copy').html();
 				});
+			});
 
-				monster.ui.tooltips(template);
+			monster.ui.tooltips(template);
 
-				monster.ui.dialog(template, {
-					title: self.i18n.active().debugAccountDialog.title
-				});
-			}
+			monster.ui.dialog(template, {
+				title: self.i18n.active().debugAccountDialog.title
+			});
 		},
 
 		showShortcutsPopup: function() {
@@ -841,10 +859,13 @@ define(function(require) {
 			}
 		},
 
-		addShortcutsGoToApps: function(apps) {
+		getGoToAppsShortcuts: function(apps) {
 			var self = this,
-				shortcut,
+				getCallback = function(app) {
+					return _.bind(monster.routing.goTo, monster.routing, 'apps/' + app.name);
+				},
 				appsToBind = {
+					userportal: 'shift+u',
 					voip: 'shift+v',
 					accounts: 'shift+a',
 					callflows: 'shift+c',
@@ -852,22 +873,21 @@ define(function(require) {
 					provisioner: 'shift+p'
 				};
 
-			_.each(apps, function(app) {
-				shortcut = {};
-
-				if (appsToBind.hasOwnProperty(app.name)) {
-					shortcut = {
-						key: appsToBind[app.name],
-						callback: function() {
-							monster.routing.goTo('apps/' + app.name);
-						},
+			return _
+				.chain(apps)
+				.filter(_.flow(
+					_.partial(_.get, _, 'name'),
+					_.partial(_.has, appsToBind)
+				))
+				.map(function(app) {
+					return {
 						category: 'apps',
-						title: app.label
+						key: appsToBind[app.name],
+						title: app.label,
+						callback: getCallback(app)
 					};
-
-					monster.ui.addShortcut(shortcut);
-				}
-			});
+				})
+				.value();
 		},
 
 		/**
