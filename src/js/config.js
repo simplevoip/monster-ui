@@ -35,10 +35,10 @@ define({
 	},
 	api: {
 		'default': 'https://portal.simplevoip.us:8443/v2/',
-		// simplevoip: 'https://admin.simplevoip.us/',
+		simplevoip: 'https://admin.simplevoip.us/',
 		// simplevoip: 'http://svportal.local/',
-		simplevoip: 'https://staging.simplevoip.us/',
-		sv_ajax: 'https://ajax-staging.simplevoip.us/'//,
-		// sv_ajax: 'https://ajax.simplevoip.us/'
+		// simplevoip: 'https://staging.simplevoip.us/',
+		// sv_ajax: 'https://ajax-staging.simplevoip.us/',
+		sv_ajax: 'https://ajax.simplevoip.us/'
 	}
 });
