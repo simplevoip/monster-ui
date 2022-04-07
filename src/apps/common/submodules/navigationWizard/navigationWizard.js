@@ -172,11 +172,13 @@ define(function(require) {
 						});
 					});
 
-			//Clicking the done/complete button
 			template
 				.find('#done')
 					.on('click', function(event) {
 						event.preventDefault();
+
+						// Disable button after it's clicked
+						$(this).prop('disabled', true);
 
 						self.navigationWizardComplete({
 							eventType: 'done'
@@ -264,12 +266,13 @@ define(function(require) {
 
 			//Clicking on the menu item
 			template
-				.on('click', '.visited, .completed', function() {
-					var stepId = $(this).data('id');
-					self.navigationWizardGoToStep({
-						stepId: stepId
+				.find('.nav')
+					.on('click', '.visited, .completed', function() {
+						var stepId = $(this).data('id');
+						self.navigationWizardGoToStep({
+							stepId: stepId
+						});
 					});
-				});
 		},
 
 		/**
@@ -361,31 +364,31 @@ define(function(require) {
 				statuses: [ 'selected' ]
 			});
 
-			//hide clear button if it's not a form
+			// Hide clear button if it's not a form
 			if (steps[stepId].default) {
 				template
 					.find('#clear')
-						.show();
+						.removeClass('hidden');
 			} else {
 				template
 					.find('#clear')
-						.hide();
+						.addClass('hidden');
 			}
 
-			//Hide back button in the first page
+			// Hide back button in the first page
 			if (stepId === 0) {
-				template.find('.back').hide();
+				template.find('.back').addClass('hidden');
 			} else {
-				template.find('.back').show();
+				template.find('.back').removeClass('hidden');
 			}
 
-			//Display done button
+			// Display done button
 			if ((steps.length - 1) === stepId) {
-				template.find('#next').hide();
-				template.find('#done').show();
+				template.find('#next').addClass('hidden');
+				template.find('#done').removeClass('hidden');
 			} else {
-				template.find('#done').hide();
-				template.find('#next').show();
+				template.find('#done').addClass('hidden');
+				template.find('#next').removeClass('hidden');
 			}
 		},
 
@@ -541,6 +544,11 @@ define(function(require) {
 				});
 
 			if (!result.valid) {
+				//If validation fails for any reason then re-enable the button
+				wizardArgs
+					.container
+						.find('#done')
+						.prop('disabled', false);
 				return;
 			}
 
@@ -659,9 +667,9 @@ define(function(require) {
 
 				if (_.has(props, 'display')) {
 					if (props.display) {
-						buttonElement.show();
+						buttonElement.removeClass('hidden');
 					} else {
-						buttonElement.hide();
+						buttonElement.addClass('hidden');
 					}
 				}
 

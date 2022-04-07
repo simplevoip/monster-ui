@@ -116,6 +116,29 @@ define(function(require) {
 					data: formattedData,
 					submodule: 'mediaSelect'
 				}));
+
+				var mediaForm = template.find('#select_media_form');
+
+				monster.ui.charsRemaining(template.find('.custom-greeting-text'), {
+					size: 350,
+					customClass: 'chars-remaining-counter'
+				});
+
+				monster.ui.validate(mediaForm, {
+					rules: {
+						'extra.shoutcastUrl': {
+							required: true
+						},
+						'mediaId': {
+							required: true,
+							regex: /^(?!none$)/
+						}
+					},
+					messages: {
+						mediaId: self.i18n.active().mediaSelect.invalidMedia
+					}
+				});
+
 				self.mediaSelectBindTabsTemplate(template);
 			}
 
@@ -141,10 +164,11 @@ define(function(require) {
 			return response;
 		},
 
-		mediaSelectBindCommon: function(template, mediaToUpload, callbackAfterSave) {
+		mediaSelectBindCommon: function(template, mediaToUpload, callbackAfterSave, mimeTypes) {
 			var self = this;
 
 			template.find('.upload-input').fileUpload({
+				mimeTypes: mimeTypes,
 				inputOnly: true,
 				wrapperClass: 'file-upload input-append',
 				btnClass: 'monster-button',
@@ -283,7 +307,7 @@ define(function(require) {
 
 			self.mediaSelectBindCommon(template, mediaToUpload, function(media) {
 				closeUploadDiv(media);
-			});
+			}, args.mimeTypes);
 		},
 
 		mediaSelectBindTabsTemplate: function(template) {
