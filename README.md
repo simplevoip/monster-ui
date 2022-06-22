@@ -49,6 +49,40 @@ define({
 
 ### Build
 
+_**Be sure to check environment variables in [/src/js/config.js](/src/js/config.js) before building**_
+```javascript
+# production
+
+define({
+  whileLabel: {
+    ...
+  },
+  api: {
+    'default': 'https://portal.simplevoip.us:8443/v2/',
+    simplevoip: 'https://admin.simplevoip.us/',
+    sv_ajax: 'https://ajax.simplevoip.us/'
+  }
+]);
+```
+
+```javascript
+# development
+
+define({
+  whileLabel: {
+    ...
+  },
+  api: {
+    'default': 'https://portal.simplevoip.us:8443/v2/',
+    simplevoip: 'https://staging.simplevoip.us/',
+    sv_ajax: 'https://ajax-staging.simplevoip.us/'
+    // locally
+    // simplevoip: 'https://[your local dev url]/',
+    // sv_ajax: 'https://[your local dev url]/
+  }
+]);
+```
+
 Use the `gulp` command to build and launch the web server
 
 ```
