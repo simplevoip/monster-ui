@@ -23,6 +23,10 @@ define({
 		port: {
 			loa: 'http://ui.zswitch.net/Editable.LOA.Form.pdf',
 			resporg: 'http://ui.zswitch.net/Editable.Resporg.Form.pdf'
-		}
+		},
+		hideBuyNumbers: true
+	},
+	api: {
+		'default': 'https://portal.cbvusa.com:8443/v2/'
 	}
 });
