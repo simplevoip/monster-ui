@@ -72,6 +72,13 @@
 		line-height: 30px;
 	}
 
+	#country {
+		width: 100%;
+		padding: 10px 5px;
+		line-height: 20px;
+		height: 42px;
+	}
+
 	.form-actions {
 		display: flex;
 		justify-content: space-between;
@@ -118,4 +125,10 @@
 .e911-address-dialog .list-choices .address-option.active {
 	background-color: #FFF;
 	border-color: $primary-color;
+}
+
+html input[disabled],
+textarea[disabled]
+{
+	cursor: not-allowed;
 }

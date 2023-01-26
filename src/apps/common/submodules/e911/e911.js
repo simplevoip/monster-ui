@@ -57,27 +57,6 @@ define(function(require) {
 				}
 			});
 
-			// popupHtml.find('#postal_code').change(function() {
-			// 	var zipCode = $(this).val();
-            //
-			// 	if (zipCode) {
-			// 		self.e911GetAddressFromZipCode({
-			// 			data: {
-			// 				zipCode: zipCode
-			// 			},
-			// 			success: function(results) {
-			// 				if (!_.isEmpty(results)) {
-			// 					var length = results[0].address_components.length;
-            //
-			// 					popupHtml.find('#locality').val(results[0].address_components[1].long_name);
-			// 					// Last component is country, before last is state, before can be county if exists or city if no county, so we had to change from 3 to length-2.
-			// 					popupHtml.find('#region').val(results[0].address_components[length - 2].short_name);
-			// 				}
-			// 			}
-			// 		});
-			// 	}
-			// });
-
 			popupHtml.find('.inline_field > input').keydown(function() {
 				popup.find('.gmap_link_div').hide();
 			});
@@ -232,7 +211,13 @@ define(function(require) {
 					.chain(data)
 					.get('notification_contact_emails', [])
 					.join(' ')
-					.value()
+					.value(),
+				enable_editing: monster.config.whitelabel.hasOwnProperty('e911_readonly')
+					? !monster.config.whitelabel.e911_readonly
+					: false,
+				readonly_attr: monster.config.whitelabel.hasOwnProperty('e911_readonly') && monster.config.whitelabel.e911_readonly
+					? 'disabled'
+					: ''
 			});
 		},
 
@@ -287,30 +272,6 @@ define(function(require) {
 					}
 				}
 			});
-
-			// self.callApi({
-			// 	resource: 'numbers.update',
-			// 	data: {
-			// 		accountId: accountId,
-			// 		phoneNumber: encodeURIComponent(phoneNumber),
-			// 		data: data,
-			// 		generateError: false
-			// 	},
-			// 	success: function(_data, status) {
-			// 		callbacks.success && callbacks.success(_data);
-			// 	},
-			// 	error: function(_data, status, globalHandler) {
-			// 		if (_data.error === '400') {
-			// 			if (data.message === 'multiple_choice') {
-			// 				callbacks.multipleChoices && callbacks.multipleChoices(_data.data.multiple_choice.e911);
-			// 			} else {
-			// 				callbacks.invalidAddress && callbacks.invalidAddress();
-			// 			}
-			// 		} else {
-			// 			globalHandler(_data, { generateError: true });
-			// 		}
-			// 	}
-			// });
 		},
 
 		e911GetAddressFromZipCode: function(args) {

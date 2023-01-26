@@ -12,31 +12,40 @@
 			<div class="control-group">
 				<label class="control-label" for="postal_code">{{ i18n.e911.postalCode }}</label>
 				<div class="controls">
-					<input id="postal_code" type="text" placeholder='{{ i18n.e911.postalCode }}' name="postal_code" value="{{postal_code}}"/>
+					<input id="postal_code" type="text" placeholder='{{ i18n.e911.postalCode }}' name="postal_code" value="{{postal_code}}" {{readonly_attr}}/>
 				</div>
 			</div>
 			<div class="control-group">
 				<label class="control-label" for="street_address">{{ i18n.e911.addressLine1 }}</label>
 				<div class="controls">
-					<input id="street_address" type="text" placeholder='{{ i18n.e911.addressLine1 }}' name="street_address" value="{{street_address}}" />
+					<input id="street_address" type="text" placeholder='{{ i18n.e911.addressLine1 }}' name="street_address" value="{{street_address}}" {{readonly_attr}}/>
 				</div>
 			</div>
 			<div class="control-group">
 				<label class="control-label" for="extended_address">{{ i18n.e911.addressLine2 }}</label>
 				<div class="controls">
-					<input id="extended_address" type="text" placeholder='{{ i18n.e911.addressLine2 }}' name="extended_address" value="{{extended_address}}" />
+					<input id="extended_address" type="text" placeholder='{{ i18n.e911.addressLine2 }}' name="extended_address" value="{{extended_address}}" {{readonly_attr}}/>
 				</div>
 			</div>
 			<div class="control-group">
 				<label class="control-label" for="locality">{{ i18n.e911.city }}</label>
 				<div class="controls">
-					<input id="locality" type="text" name="locality" placeholder='{{ i18n.e911.city }}' value="{{locality}}" />
+					<input id="locality" type="text" name="locality" placeholder='{{ i18n.e911.city }}' value="{{locality}}" {{readonly_attr}}/>
 				</div>
 			</div>
 			<div class="control-group">
 				<label class="control-label" for="region">{{ i18n.e911.state }}</label>
 				<div class="controls">
-					<input id="region" type="text" name="region" placeholder='{{ i18n.e911.state }}' value="{{region}}" />
+					<input id="region" type="text" name="region" placeholder='{{ i18n.e911.state }}' value="{{region}}" {{readonly_attr}}/>
+				</div>
+			</div>
+			<div class="control-group">
+				<label class="control-label" for="country">{{ i18n.e911.country }}</label>
+				<div class="controls">
+					<select id="country" name="country" placeholder="{{ i18n.e911.country }}" value="{{country}}" {{readonly_attr}}>
+						<option value="US">United States</option>
+						<option value="CA">Canada</option>
+					</select>
 				</div>
 			</div>
 			{{#if status}}
@@ -51,7 +60,7 @@
 					{{ i18n.e911.email.label}}
 				</label>
 				<div class="controls">
-					<textarea name="notification_contact_emails" id="notification_contact_emails" placeholder="{{i18n.e911.email.placeholder}}">
+					<textarea name="notification_contact_emails" id="notification_contact_emails" placeholder="{{i18n.e911.email.placeholder}}" {{readonly_attr}}>
 						{{notification_contact_emails}}
 					</textarea>
 				</div>
@@ -64,18 +73,22 @@
 		{{/monsterText}}
 	</div>
 	<div class="form-actions">
-		<button class="monster-button-danger hidden" id="remove_e911_btn">
+		{{#if enable_editing}}
+		<button class="monster-button-danger" id="remove_e911_btn">
 			{{i18n.remove}}
 		</button>
-        <div class="space-filler">&nbsp;</div>
+		{{/if}}
+		<div class="space-filler">&nbsp;</div>
 		<div class="actions-group">
 			<a class="cancel-link monster-link blue">
 				{{i18n.cancel}}
 			</a>
+			{{#if enable_editing}}
 			<button class="monster-button-success" id="submit_btn">
 				{{i18n.update}}
 			</button>
+			{{/if}}
 		</div>
-        <input type="hidden" name="erlid" value="{{erlid}}">
+		<input type="hidden" name="erlid" value="{{erlid}}">
 	</div>
 </form>
