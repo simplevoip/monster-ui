@@ -31,14 +31,17 @@ define({
 		port: {
 			loa: 'http://ui.zswitch.net/Editable.LOA.Form.pdf',
 			resporg: 'http://ui.zswitch.net/Editable.Resporg.Form.pdf'
-		}
+		},
+		e911_readonly: true
 	},
 	api: {
-		'default': 'https://portal.simplevoip.us:8443/v2/',
-		simplevoip: 'https://admin.simplevoip.us/',
-		// simplevoip: 'http://svportal.local/',
-		// simplevoip: 'https://staging.simplevoip.us/',
-		// sv_ajax: 'https://ajax-staging.simplevoip.us/',
-		sv_ajax: 'https://ajax.simplevoip.us/'
+		'default': 'https://portal.simplevoip.us:8443/v2/', // PRODUCTION
+		// 'default': 'https://sandbox.2600hz.com:8443/v2/', // SANDBOX
+		// simplevoip: 'https://admin.simplevoip.us/',
+		// simplevoip: 'https://staging.simplevoip.us/', // STAGING
+		simplevoip: 'https://admin.simplevoip.local/', // LOCAL
+		// sv_ajax: 'https://ajax.simplevoip.us/',
+		// sv_ajax: 'https://ajax-staging.simplevoip.us/', // STAGING
+		sv_ajax: 'https://ajax.simplevoip.local/', // LOCAL
 	}
 });
