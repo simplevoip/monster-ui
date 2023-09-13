@@ -37,11 +37,11 @@ define({
 	api: {
 		'default': 'https://portal.simplevoip.us:8443/v2/', // PRODUCTION
 		// 'default': 'https://sandbox.2600hz.com:8443/v2/', // SANDBOX
-		simplevoip: 'https://admin.simplevoip.us/',
+		simplevoip: 'https://glacier.simplevoip.us/',
 		// simplevoip: 'https://staging.simplevoip.us/', // STAGING
 		// simplevoip: 'https://admin.simplevoip.local/', // LOCAL
-		sv_ajax: 'https://ajax.simplevoip.us/',
-		// sv_ajax: 'https://ajax-staging.simplevoip.us/', // STAGING
-		// sv_ajax: 'https://ajax.simplevoip.local/', // LOCAL
+		sv_ajax: 'https://ajax.simplevoip.us/'
+		// sv_ajax: 'https://ajax-staging.simplevoip.us/' // STAGING
+		// sv_ajax: 'https://ajax.simplevoip.local/' // LOCAL
 	}
 });
