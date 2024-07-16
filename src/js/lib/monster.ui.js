@@ -146,6 +146,10 @@ define(function(require) {
 				return options.inverse(this);
 			},
 
+			isFeatureAvailable: function(featurePath, options) {
+				return options[monster.util.isFeatureAvailable(featurePath) ? 'fn' : 'inverse'](this);
+			},
+
 			isPrivLevelAdmin: function(pUser, pOptions) {
 				var user = pUser.hasOwnProperty('priv_level') ? pUser : undefined,
 					options = !pOptions ? pUser : pOptions;
@@ -207,6 +211,9 @@ define(function(require) {
 							case 'prepend-label':
 							case 'label-prepend':
 								templateData.prepend = true;
+								break;
+							case 'raw-label':
+								templateData.rawLabel = true;
 								break;
 							default:
 								templateData.label = arguments[i];
@@ -471,6 +478,23 @@ define(function(require) {
 	}
 
 	var ui = {
+		charsRemaining: charsRemaining,
+		chosen: chosen,
+		cidNumberSelector: cidNumberSelector,
+		countrySelector: countrySelector,
+		disableAutoFill: disableAutoFill,
+		getFormData: getFormData,
+		getSvgIconTemplate: getSvgIconTemplate,
+		getJsoneditor: getJsoneditor,
+		insertTemplate: insertTemplate,
+		jsoneditor: jsoneditor,
+		keyValueEditor: keyValueEditor,
+		keyValueSelector: keyValueSelector,
+		monthpicker: monthpicker,
+		numberPicker: numberPicker,
+		stateSelector: stateSelector,
+		toast: toast,
+
 		// When the developer wants to use steps, he can just send an object like { range: 'max', steps: [30,3600,18880], value: 30 }
 		// for the options, and this tool will take care of the standard configuration, with no need to provide the "step", "min" or "max" options.
 		slider: function(target, pOptions) {
@@ -2104,6 +2128,8 @@ define(function(require) {
 			var self = this,
 				codecsI18n = monster.apps.core.i18n.active().codecs,
 				defaultAudioList = {
+					'AMR-WB': codecsI18n.audio['AMR-WB'],
+					'AMR': codecsI18n.audio.AMR,
 					'CELT@32000h': codecsI18n.audio['CELT@32000h'],
 					'CELT@48000h': codecsI18n.audio['CELT@48000h'],
 					'CELT@64000h': codecsI18n.audio['CELT@64000h'],
@@ -2685,8 +2711,8 @@ define(function(require) {
 			self.onNavbarTabClick(thisArg, $tab, oArgs);
 		},
 
-		mask: function(target, type) {
-			var validations = {
+		mask: function(target, type, options) {
+			var config = _.get({
 				phoneNumber: {
 					mask: 'AZZZZZZZZZZZZZZZZ',
 					options: {
@@ -2712,6 +2738,17 @@ define(function(require) {
 						}
 					}
 				},
+				ipv4: {
+					mask: '0ZZ.0ZZ.0ZZ.0ZZ',
+					options: {
+						translation: {
+							'Z': {
+								pattern: /[0-9]/,
+								optional: true
+							}
+						}
+					}
+				},
 				extension: {
 					mask: 'ZZZZZZZZZZZZZZZZ',
 					options: {
@@ -2723,15 +2760,12 @@ define(function(require) {
 						}
 					}
 				}
-			};
+			}, type, {
+				mask: type,
+				options: options
+			});
 
-			if (validations.hasOwnProperty(type)) {
-				var data = validations[type];
-
-				target.mask(data.mask, data.options);
-			} else {
-				console.warn('monster.ui.mask: parameter type\'s value "' + type + '" not a valid option');
-			}
+			target.mask(config.mask, config.options);
 		},
 
 		keyboardShortcuts: {},
@@ -2821,7 +2855,7 @@ define(function(require) {
 				},
 				addPageSizeComponent = function(container, table, pPageSize, pAvailablePageSizes) {
 					var pageSize = pPageSize || finalOptions.paging.size || 10,
-						availablePageSizes = pAvailablePageSizes || [ 10, 25, 50, 100 ],
+						availablePageSizes = pAvailablePageSizes || finalOptions.paging.availablePageSizes,
 						footableInstance;
 
 					if (availablePageSizes.indexOf(parseInt(pageSize)) < 0) {
@@ -2833,14 +2867,29 @@ define(function(require) {
 
 					// If we gave a selector with many table, we need to add the component to each table, so we need to loop thru each table included in the jquery selector
 					$.each(table, function(k, singleTable) {
-						var $singleTable = $(singleTable);
+						var $singleTable = $(singleTable),
+							$tablePaging = $singleTable.find('.footable-paging td');
 
-						$singleTable.find('.footable-paging td').append($(monster.template(monster.apps.core, 'monster-table-pageSize', { pageSize: pageSize, availablePageSizes: availablePageSizes })));
+						if ($tablePaging.length === 0) {
+							$singleTable.find('tfoot').append(
+								$(monster.template(
+									monster.apps.core, 'monster-table-paging',
+									{
+										cols: $singleTable.find('tbody > tr:first > td').length,
+										rowCount: footable.get($singleTable).rows.all.length
+									}
+								))
+							);
+							$tablePaging = $singleTable.find('.footable-paging td');
+						}
+
+						$tablePaging.append($(monster.template(monster.apps.core, 'monster-table-pageSize', { pageSize: pageSize, availablePageSizes: availablePageSizes })));
 
 						$singleTable.find('.footable-paging td .table-page-size select').on('change', function() {
 							pageSize = parseInt($(this).val());
 							footableInstance = footable.get('#' + $singleTable.attr('id'));
 
+							$singleTable.find('tfoot').empty();
 							footableInstance.pageSize(pageSize);
 							addPageSizeComponent(container, $singleTable, pageSize, availablePageSizes);
 
@@ -2968,6 +3017,7 @@ define(function(require) {
 						enabled: true,
 						size: 10,
 						limit: 0,
+						availablePageSizes: [ 10, 25, 50, 100 ],
 						countFormat: monster.apps.core.i18n.active().footable.format
 					}
 				},
@@ -3282,22 +3332,22 @@ define(function(require) {
 			}
 		},
 
-		clipboard: function(pTarget, value) {
+		clipboard: function(pTarget, value, successMessage) {
 			// Have to do this so it works...
 			$.ui.dialog.prototype._focusTabbable = $.noop;
 
 			var target = pTarget[0];
 
 			var cb = new Clipboard(target, {
-				text: function() {
-					return typeof value === 'function' ? value() : value;
+				text: function(trigger) {
+					return typeof value === 'function' ? value(trigger) : value;
 				}
 			});
 
 			cb.on('success', function() {
 				toast({
 					type: 'success',
-					message: monster.apps.core.i18n.active().clipboard.successCopy
+					message: successMessage || monster.apps.core.i18n.active().clipboard.successCopy
 				});
 			});
 		},
@@ -3445,6 +3495,372 @@ define(function(require) {
 	};
 
 	/**
+	 * @param  {jQuery} $target
+	 * @param  {Object} args
+	 * @param  {Object[]} args.cidNumbers
+	 * @param  {Object[]} [args.phoneNumbers]
+	 * @param  {String} [args.accountId]
+	 * @param  {Function} [args.onAdded]
+	 * @param  {Boolean} [args.allowVerifyLater=false]
+	 * @param  {Boolean} [args.allowNone=true]
+	 * @param  {Boolean} [args.allowAdd=true]
+	 * @param  {String} [args.noneLabel]
+	 * @param  {String} [args.selectName]
+	 * @param  {String} [args.selected]
+	 * @param  {String} [args.chosen]
+	 */
+	function cidNumberSelector($target, args) {
+		var self = monster.apps.core;
+		var getOptionData = _.flow(
+			_.partial(_.get, _, 'number'),
+			function(number) {
+				return {
+					value: number,
+					text: monster.util.formatPhoneNumber(number)
+				};
+			}
+		);
+		var cidNumbers = _
+			.chain(args)
+			.get('cidNumbers', [])
+			.filter('verified')
+			.map(getOptionData)
+			.value();
+		var phoneNumbers = _
+			.chain(args)
+			.get('phoneNumbers', [])
+			.map(getOptionData)
+			.value();
+		var numberOptions = _
+			.chain([
+				cidNumbers,
+				phoneNumbers
+			])
+			.flatten()
+			.sortBy('text')
+			.value();
+		var allowNone = _.get(args, 'allowNone', true);
+		var canAddExternalCidNumbers = monster.util.getCapability('caller_id.external_numbers').isEnabled;
+		var allowAdd = canAddExternalCidNumbers && _.get(args, 'allowAdd', true);
+		var forceNone = allowNone || _.isEmpty(numberOptions);
+		var defaultOptions = _.flatten([
+			forceNone ? [{
+				value: '',
+				text: _.get(args, 'noneLabel', self.i18n.active().cidNumberSelector.none)
+			}] : [],
+			allowAdd ? [{
+				value: 'add_new',
+				text: self.i18n.active().cidNumberSelector.addNew
+			}] : []
+		]);
+		var options = _.flatten([
+			defaultOptions,
+			numberOptions
+		]);
+		var selectedPhoneNumber = _.find([
+			args.selected
+		], _.overEvery(
+			_.isString,
+			_.partial(_.includes, _.map(numberOptions, 'value'))
+		));
+		var firstPhoneNumber = _
+			.chain(numberOptions)
+			.head()
+			.get('value')
+			.value();
+		var $template = $(self.getTemplate({
+			name: 'monster-cidNumberSelector',
+			data: _.merge({
+				selected: _.find([
+					selectedPhoneNumber,
+					allowNone && '',
+					firstPhoneNumber,
+					''
+				], _.isString),
+				options: options
+			}, _.pick(args, [
+				'selectName'
+			]))
+		}));
+		var $selector = $template.find('select');
+		var onAdded = _.find([
+			args.onAdded,
+			function() {}
+		], _.isFunction);
+
+		chosen($selector, _.get(args, 'chosen'));
+
+		$selector.on('change', function onAddNewSelect(event) {
+			event.preventDefault();
+
+			var value = $(this).val();
+
+			if (value !== 'add_new') {
+				return;
+			}
+			var $noneOption = $selector.find('option[value=""]');
+			var defaultOptionValues = _.map(defaultOptions, 'value');
+			var $firstNumberOption = $selector
+				.find('option')
+				.filter(function() {
+					return !_.includes(defaultOptionValues, $(this).val());
+				})
+				.first();
+			var $defaultOption = forceNone && $noneOption.length ? $noneOption
+				: $firstNumberOption.length ? $firstNumberOption
+				: $noneOption;
+
+			$selector
+				.val($defaultOption.val())
+				.trigger('chosen:updated');
+
+			monster.pub('common.cidNumber.renderAdd', _.merge({
+				allowVerifyLater: false,
+				accountId: monster.apps.auth.currentAccount.id,
+				onVerified: function(numberMetadata) {
+					var optionData = getOptionData(numberMetadata);
+					var $option = $('<option>', optionData);
+					var changeEvents = [
+						'chosen:updated',
+						'change'
+					];
+
+					if (!allowNone) {
+						$selector.find('option[value=""]').remove();
+					}
+
+					$selector
+						.append($option)
+						.val(optionData.value);
+
+					changeEvents.forEach(
+						$selector.trigger.bind($selector)
+					);
+
+					onAdded(numberMetadata);
+				}
+			}, _.pick(args, [
+				'accountId',
+				'allowVerifyLater'
+			])));
+		});
+
+		$target.append($template);
+	}
+
+	/**
+	 * @param  {Object} args
+	 * @param  {Object[]} [args.choices]
+	 * @param  {Object} [args.existing]
+	 * @param  {Boolean} [args.isEditable=false]
+	 * @param  {Object} [args.i18n]
+	 * @param  {Function} [args.normalizer]
+	 * @param  {Function} [args.onSelect]
+	 */
+	function keyValueSelector(pArgs) {
+		var self = monster.apps.core,
+			args = _.merge({
+				choices: [],
+				existing: {},
+				isEditable: false,
+				i18n: {
+					title: self.i18n.active().keyValueSelector.title
+				},
+				normalizer: _.snakeCase
+			}, pArgs),
+			choices = args.choices,
+			existing = args.existing,
+			isEditable = _.isEmpty(choices) ? true : args.isEditable,
+			i18n = args.i18n,
+			normalizer = args.normalizer,
+			onSelect = args.onSelect,
+			$template = $(self.getTemplate({
+				name: 'monster-keyValueSelector',
+				data: {
+					i18nCustom: _.get(args, 'i18n', {}),
+					choices: choices,
+					isEditable: isEditable
+				}
+			})),
+			$container = monster.ui.dialog($template, _.merge({
+				autoScroll: false
+			}, _.pick(i18n, [
+				'title'
+			]))),
+			$form = $container.find('#key_value_selector_form'),
+			itemsPerCategory = _.mergeWith(
+				_
+					.chain(existing)
+					.mapKeys(function(v, category) {
+						return normalizer(category);
+					})
+					.mapValues(_.partial(_.map, _, normalizer))
+					.value(),
+				_
+					.chain(choices)
+					.keyBy(_.flow(
+						_.partial(_.get, _, 'id'),
+						normalizer
+					))
+					.mapValues(_.flow(
+						_.partial(_.get, _, 'items'),
+						_.partial(_.map, _, _.flow(
+							_.partial(_.get, _, 'id'),
+							normalizer
+						))
+					))
+					.value(),
+				function(obj, src) {
+					return _.every([obj, src], _.isArray) ? _
+						.chain(obj)
+						.concat(src)
+						.uniq()
+						.value() : undefined;
+				}
+			),
+			categories = _.keys(itemsPerCategory),
+			$newCategoryInput = $container.find('input[name="newCategoryId"]'),
+			$newItemInput = $container.find('input[name^="newItemId."]'),
+			$selectButton = $container.find('.js-select'),
+			ruleCommon = {
+				normalizer: _.unary(normalizer)
+			};
+
+		monster.ui.validate($form, {
+			rules: _.merge({
+				newCategoryId: _.merge({
+					checkList: categories
+				}, ruleCommon)
+			}, _.transform(itemsPerCategory, function(obj, items, category) {
+				obj['newItemId.' + category] = _.merge({
+					checkList: items
+				}, ruleCommon);
+			}, {}))
+		});
+
+		$container
+			.find('input[name="categoryId"]')
+				.on('change', function(event) {
+					event.preventDefault();
+
+					var selectedCategoryId = $(this).val();
+
+					$container.find('.sub-category-wrapper').hide();
+					$newItemInput.hide();
+					$selectButton.prop('disabled', 'disabled');
+					$container.find('input[name="itemId"]').prop('checked', false);
+
+					if (_.isEmpty(selectedCategoryId)) {
+						$newCategoryInput.slideDown(100, function() {
+							$(this).focus();
+						});
+					} else {
+						$newCategoryInput
+							.slideUp(100)
+							.val('');
+						$newItemInput.val('');
+						$container
+							.find('.sub-category-wrapper[data-category="' + selectedCategoryId + '"]')
+								.slideDown(100);
+					}
+				});
+
+		$container
+			.find('input[name="newCategoryId"]')
+				.on('keyup input', _.debounce(function(event) {
+					event.preventDefault();
+
+					var newCategoryId = _
+							.chain(monster.ui.getFormData('key_value_selector_form'))
+							.get('newCategoryId')
+							.thru(normalizer)
+							.value(),
+						$emptyCategoryWrapper = $container.find('.sub-category-wrapper[data-category=""]');
+
+					if (_.isEmpty(newCategoryId) || _.includes(categories, newCategoryId)) {
+						$container.find('.sub-category-wrapper').hide();
+						$newItemInput.val('');
+					} else if (!$emptyCategoryWrapper.is(':visible')) {
+						$emptyCategoryWrapper.slideDown(100, function() {
+							$emptyCategoryWrapper.find('input[name="itemId"]').click();
+						});
+					}
+					monster.ui.valid($form);
+				}, 250));
+
+		$container
+			.find('input[name="itemId"]')
+				.on('change', function(event) {
+					event.preventDefault();
+
+					var selectedItemId = $(this).val();
+
+					$selectButton.prop('disabled', _.isEmpty(selectedItemId) ? 'disabled' : false);
+
+					if (_.isEmpty(selectedItemId)) {
+						$newItemInput.slideDown(100, function() {
+							$(this).focus();
+						});
+					} else {
+						$newItemInput
+							.slideUp(100)
+							.val('');
+					}
+				});
+
+		$container
+			.find('input[name^="newItemId."]')
+				.on('keyup input', function(event) {
+					event.preventDefault();
+
+					var formData = monster.ui.getFormData('key_value_selector_form'),
+						newCategoryId = normalizer(
+							_.isEmpty(formData.categoryId) ? $newCategoryInput.val() : formData.categoryId
+						),
+						newItemId = normalizer($(this).val()),
+						alreadyExists = _.includes(categories, newCategoryId) && _
+							.chain(itemsPerCategory)
+							.get(newCategoryId)
+							.includes(newItemId)
+							.value();
+
+					if (_.isEmpty(newItemId) || alreadyExists) {
+						$selectButton.prop('disabled', 'disabled');
+					} else if (!_.isEmpty(newItemId) && !alreadyExists) {
+						$selectButton.prop('disabled', false);
+					}
+					monster.ui.valid($form);
+				});
+
+		$container
+			.find('.js-cancel')
+				.on('click', function(event) {
+					event.preventDefault();
+
+					$container.dialog('close');
+				});
+
+		$container
+			.find('#key_value_selector_form')
+				.on('submit', function(event) {
+					event.preventDefault();
+
+					var formData = monster.ui.getFormData('key_value_selector_form'),
+						category = _.isEmpty(formData.newCategoryId) ? formData.categoryId : normalizer(formData.newCategoryId),
+						isCategoryNew = !_.includes(categories, category),
+						newItemInputValue = _.get(formData, [
+							'newItemId',
+							isCategoryNew ? '' : category
+						]),
+						item = _.isEmpty(formData.itemId) ? normalizer(newItemInputValue) : formData.itemId;
+
+					onSelect && onSelect(category, item);
+
+					$container.dialog('close');
+				});
+	}
+
+	/**
 	 * Chosen plugin wrapper used to apply the same default options
 	 * @param  {jQuery} $target  <select> element to invoke chosen on
 	 * @param  {Object} pOptions Options for widget
@@ -3506,7 +3922,6 @@ define(function(require) {
 
 		return instance;
 	}
-	ui.chosen = chosen;
 
 	/**
 	 * Transforms a select field into a searchable list of countries.
@@ -3557,7 +3972,6 @@ define(function(require) {
 
 		return chosenInstance;
 	}
-	ui.countrySelector = countrySelector;
 
 	/**
 	 * Temporarily obfuscates form fields `name` attributes to disable browsers/password managers
@@ -3574,7 +3988,6 @@ define(function(require) {
 		}
 		$target.disableAutoFill(options);
 	}
-	ui.disableAutoFill = disableAutoFill;
 
 	/**
 	 * Gets a template to render the option items for a `select` list of the countries
@@ -3630,7 +4043,6 @@ define(function(require) {
 
 		return formData;
 	}
-	ui.getFormData = getFormData;
 
 	/**
 	 * Gets a template to render `select` list of the languages that are supported by Monster UI
@@ -3685,6 +4097,96 @@ define(function(require) {
 	};
 
 	/**
+	 * Gets a template to render the option items for a `select` list of US states
+	 *
+	 * @private
+	 * @param {Object} args
+	 * @param {String|String[]} args.selectedValues  The value or values to be selected
+	 * @param {Boolean} args.showEmptyOption  Whether or not to add an empty option to the list
+	 * @returns  {String}  States selector template
+	 */
+	function getStateSelectorTemplate(args) {
+		var selectedValues = args.selectedValues,
+			showEmptyOption = args.showEmptyOption,
+			showTerritories = args.showTerritories,
+			states = {
+				'AL': 'Alabama',
+				'AK': 'Alaska',
+				'AZ': 'Arizona',
+				'AR': 'Arkansas',
+				'CA': 'California',
+				'CO': 'Colorado',
+				'CT': 'Connecticut',
+				'DE': 'Delaware',
+				'FL': 'Florida',
+				'GA': 'Georgia',
+				'HI': 'Hawaii',
+				'ID': 'Idaho',
+				'IL': 'Illinois',
+				'IN': 'Indiana',
+				'IA': 'Iowa',
+				'KS': 'Kansas',
+				'KY': 'Kentucky',
+				'LA': 'Louisiana',
+				'ME': 'Maine',
+				'MD': 'Maryland',
+				'MA': 'Massachusetts',
+				'MI': 'Michigan',
+				'MN': 'Minnesota',
+				'MS': 'Mississippi',
+				'MO': 'Missouri',
+				'MT': 'Montana',
+				'NE': 'Nebraska',
+				'NV': 'Nevada',
+				'NH': 'New Hampshire',
+				'NJ': 'New Jersey',
+				'NM': 'New Mexico',
+				'NY': 'New York',
+				'NC': 'North Carolina',
+				'ND': 'North Dakota',
+				'OH': 'Ohio',
+				'OK': 'Oklahoma',
+				'OR': 'Oregon',
+				'PA': 'Pennsylvania',
+				'RI': 'Rhode Island',
+				'SC': 'South Carolina',
+				'SD': 'South Dakota',
+				'TN': 'Tennessee',
+				'TX': 'Texas',
+				'UT': 'Utah',
+				'VT': 'Vermont',
+				'VA': 'Virginia',
+				'WA': 'Washington',
+				'WV': 'West Virginia',
+				'WI': 'Wisconsin',
+				'WY': 'Wyoming'
+			},
+			territories = {
+				'AS': 'American Samoa',
+				'GU': 'Guam',
+				'MP': 'Northern Mariana Islands',
+				'PR': 'Puerto Rico',
+				'VI': 'U.S. Virgin Islands'
+			},
+			stateList = _
+				.chain(states)
+				.assign(showTerritories ? territories : {})
+				.map(function(label, code) {
+					return {
+						code: code,
+						label: label
+					};
+				})
+				.sortBy('label')
+				.value();
+		return monster.template(monster.apps.core, 'monster-state-selector', {
+			states: stateList,
+			selectedStates: selectedValues,
+			showEmptyOption: showEmptyOption
+		});
+	}
+
+	/**
 	 * Get handlebars template to render an SVG icon
 	 * @param   {Object} args
 	 * @param   {String} args.id            Icon ID
@@ -3713,7 +4215,6 @@ define(function(require) {
 			attributes: attributes
 		});
 	}
-	ui.getSvgIconTemplate = getSvgIconTemplate;
 
 	/**
 	 * Get the jsoneditor instance from the container as long as exists
@@ -3729,8 +4230,6 @@ define(function(require) {
 
 		return _.get(container, 'jsoneditor', null);
 	}
-	ui.getJsoneditor = getJsoneditor;
-
 
 	/**
 	 * Cleanly insert a template in a container by animating it and showing a
@@ -3742,18 +4241,32 @@ define(function(require) {
 	function insertTemplate($container, template, pOptions) {
 		var coreApp = monster.apps.core,
 			options = _.merge({
+				loadingTemplate: 'default',
 				hasBackground: true,
 				title: coreApp.i18n.active().insertTemplate.title,
 				text: coreApp.i18n.active().insertTemplate.text,
 				duration: 250
 			}, pOptions),
-			loadingTemplate = monster.template(coreApp, 'monster-insertTemplate', _.pick(options, [
-				'hasBackground',
-				'cssClass',
-				'cssId',
-				'title',
-				'text'
-			])),
+			templateGettersPerType = {
+				spinner: function() {
+					return monster.template(coreApp, 'monster-insertTemplate-spinner');
+				},
+				'default': function(options) {
+					return monster.template(coreApp, 'monster-insertTemplate', _.pick(options, [
+						'hasBackground',
+						'cssClass',
+						'cssId',
+						'title',
+						'text'
+					]));
+				}
+			},
+			templateType = _.find([
+				options.loadingTemplate,
+				'default'
+			], _.partial(_.has, templateGettersPerType)),
+			templateGetter = _.get(templateGettersPerType, templateType),
+			loadingTemplate = templateGetter(options),
 			appendTemplate = function(template, insertTemplateCallback, fadeInCallback) {
 				$container
 					.stop()
@@ -3773,7 +4286,6 @@ define(function(require) {
 			template(appendTemplate);
 		}
 	}
-	ui.insertTemplate = insertTemplate;
 
 	/**
 	 * Create a new instance of jsoneditor
@@ -3798,7 +4310,6 @@ define(function(require) {
 
 		return editor;
 	}
-	ui.jsoneditor = jsoneditor;
 
 	/**
 	 * Generates a key-value pair editor
@@ -3872,7 +4383,6 @@ define(function(require) {
 		$target.append($editorTemplate);
 		return $editorTemplate;
 	}
-	ui.keyValueEditor = keyValueEditor;
 
 	/**
 	 * Merges HTML attributes, mapped as JSON objects
@@ -3940,7 +4450,6 @@ define(function(require) {
 			}, monster.apps.core.i18n.active().monthPicker)
 		});
 	}
-	ui.monthpicker = monthpicker;
 
 	/**
 	 * Transforms a field into a number picker, using the jQuery UI Spinner widget
@@ -3988,8 +4497,59 @@ define(function(require) {
 			}
 		});
 		return $target.spinner(options);
-	};
-	ui.numberPicker = numberPicker;
+	}
+
+	/**
+	 * Transforms a select field into a searchable list of US states.
+	 * @param  {jQuery} $target  <select> element on which the list will be built
+	 * @param  {Object} [args]  Additional arguments for the widget
+	 * @param  {String|String[]} [args.selectedValues]  List of selected values
+	 * @param  {Object} [args.options]  Options for widget
+	 * @returns  {Object}  Chosen instance
+	 */
+	function stateSelector($target, args) {
+		if (!($target instanceof jQuery)) {
+			throw TypeError('"$target" is not a jQuery object');
+		}
+		if (!$target.is('select')) {
+			throw TypeError('"$target" is not a select input');
+		}
+		if (!_.isUndefined(args) && !_.isPlainObject(args)) {
+			throw TypeError('"args" is not a plain object');
+		}
+		if (
+			_.has(args, 'selectedValues')
+			&& !(_.isString(args.selectedValues) || _.isArray(args.selectedValues))
+		) {
+			throw TypeError('"args.selectedValues" is not a string nor an array');
+		}
+		if (_.has(args, 'options') && !_.isPlainObject(args.options)) {
+			throw TypeError('"args.options" is not a plain object');
+		}
+		var selectedValues = _.get(args, 'selectedValues', []);
+		var options = _.get(args, 'options', {});
+		var showEmptyOption = _.get(options, 'showEmptyOption', false);
+		var showTerritories = _.get(options, 'showTerritories', false);
+		var itemsTemplate = getStateSelectorTemplate({
+			selectedValues: selectedValues,
+			showEmptyOption: showEmptyOption,
+			showTerritories: showTerritories
+		});
+		var itemTemplate = monster.template(monster.apps.core, 'monster-state-selector-item');
+		var chosenOptions = _.merge({
+			html_template: itemTemplate
+		}, _.omit(options, ['showTerritories']));
+		var chosenInstance;
+
+		// Append items to select element
+		$target.append(itemsTemplate);
+
+		// Initialize chosen
+		chosenInstance = ui.chosen($target, chosenOptions);
+		chosenInstance.container.addClass('monster-state-selector');
+
+		return chosenInstance;
+	}
 
 	/**
 	 * Wrapper for toast notification library
@@ -4012,7 +4572,6 @@ define(function(require) {
 			throw new Error('`' + type + '`' + ' is not a toast type, should be one of `success`, `error`, `warning` or `info`.');
 		}
 	}
-	ui.toast = toast;
 
 	/**
 	 * Helper to display characters remaining inline
@@ -4062,7 +4621,6 @@ define(function(require) {
 			checkLength(event);
 		});
 	}
-	ui.charsRemaining = charsRemaining;
 
 	initialize();
 

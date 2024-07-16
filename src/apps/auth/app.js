@@ -4,11 +4,6 @@ define(function(require) {
 		monster = require('monster');
 
 	var app = {
-
-		name: 'auth',
-
-		css: [ 'app' ],
-
 		i18n: {
 			'de-DE': { customCss: false },
 			'en-US': { customCss: false },
@@ -27,6 +22,15 @@ define(function(require) {
 			kazooConnectionName: 'kazooAPI',
 			mainContainer: undefined,
 			isAuthentified: false,
+
+			/**
+			 * Holds map of feature sets merged from config and entitlements.
+			 * @type {Object}
+			 *
+			 * Set on successful authentication.
+			 *
+			 */
+			featureSet: {},
 
 			/**
 			 * Holds map of capababilities returned on authentication.
@@ -196,7 +200,11 @@ define(function(require) {
 
 			self.getAuth(authToken,
 				function(authData) {
-					callback && callback(authData);
+					var tokenData = _.merge({}, authData, {
+						auth_token: authToken
+					});
+
+					callback && callback(tokenData);
 				},
 				function(error) {
 					errorCallback && errorCallback(error);
@@ -280,7 +288,7 @@ define(function(require) {
 
 			self.appFlags.isAuthentified = true;
 
-			_.set(self.appFlags, 'capabilities', _.get(data.data, 'capabilities', {}));
+			self.appFlags.featureSet = monster.getFeatureSet(data.auth_token);
 
 			self.appFlags.connections[self.appFlags.kazooConnectionName] = {
 				accountId: data.data.account_id,
@@ -302,13 +310,38 @@ define(function(require) {
 
 			monster.cookies.set('monster-auth', cookieAuth);
 
-			// In the case of the retry login, we don't want to re-update the UI, we just want to re-update the flags set above, that's why we added this parameter.
-			if (updateLayout) {
-				$('.core-footer').append(self.appFlags.mainContainer.find('.powered-by-block .powered-by'));
-				self.appFlags.mainContainer.empty();
+			monster.waterfall([
+				function getCidCapabilityStatus(next) {
+					self.callApi({
+						resource: 'externalNumbers.list',
+						data: {
+							accountId: data.data.account_id,
+							generateError: false
+						},
+						success: _.partial(_.ary(next, 2), null, true),
+						error: _.partial(_.ary(next, 2), null, false)
+					});
+				}
+			], function(err, cidCapabilityStatus) {
+				_.set(self.appFlags, 'capabilities', _.merge({},
+					_.get(data.data, 'capabilities', {}),
+					{
+						caller_id: {
+							external_numbers: {
+								available: cidCapabilityStatus
+							}
+						}
+					}
+				));
 
-				self.afterLoggedIn(data.data);
-			}
+				// In the case of the retry login, we don't want to re-update the UI, we just want to re-update the flags set above, that's why we added this parameter.
+				if (updateLayout) {
+					$('.core-footer').append(self.appFlags.mainContainer.find('.powered-by-block .powered-by'));
+					self.appFlags.mainContainer.empty();
+
+					self.afterLoggedIn(data.data);
+				}
+			});
 		},
 
 		//Events handler
@@ -337,8 +370,18 @@ define(function(require) {
 					self.getAccount(self.accountId, function(data) {
 						// The Kazoo Version is returned by all APIs. Since it won't change, we'll store it in this flag to display it in other places without querying APIs.
 						monster.config.developerFlags.kazooVersion = data.version;
+						var accountData = _
+							.chain(data.metadata)
+							.pick([
+								'billing_mode',
+								'enabled',
+								'superduper_admin',
+								'wnm_allow_additions',
+								'is_reseller',
+								'reseller_id'
+							]).merge(data.data).value();
 
-						callback(null, data.data);
+						callback(null, accountData);
 					},
 					function(data) {
 						callback('error account', data);

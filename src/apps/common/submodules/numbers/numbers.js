@@ -1,6 +1,7 @@
 define(function(require) {
 	var $ = require('jquery'),
 		_ = require('lodash'),
+		async = require('async'),
 		monster = require('monster');
 
 	var numbers = {
@@ -75,6 +76,11 @@ define(function(require) {
 					dataNumbers: data
 				});
 
+				self.numbersRenderExternal({
+					parent: numbersView,
+					dataNumbers: data
+				});
+
 				self.numbersBindEvents(numbersView, data);
 
 				container
@@ -105,16 +111,19 @@ define(function(require) {
 		numbersFormatData: function(data) {
 			var self = this,
 				mapAccounts = {},
-				templateLists = {
+				templateLists = _.merge({
 					spareNumbers: [],
 					usedNumbers: []
-				},
+				}, _.pick(data.numbers, [
+					'externalNumbers'
+				])),
 				templateData = {
 					hideBuyNumbers: monster.config.whitelabel.hasOwnProperty('hideBuyNumbers')
 						? monster.config.whitelabel.hideBuyNumbers
 						: false,
 					hidePort: monster.config.whitelabel.hasOwnProperty('hide_port') ? monster.config.whitelabel.hide_port : false,
 					viewType: data.viewType,
+					canAddExternalCids: monster.util.getCapability('caller_id.external_numbers').isEnabled,
 					canAddExternalNumbers: monster.util.canAddExternalNumbers(),
 					listAccounts: []
 				};
@@ -143,6 +152,7 @@ define(function(require) {
 				}
 			});
 
+			thisAccount.countExternalNumbers = thisAccount.externalNumbers.length;
 			thisAccount.countUsedNumbers = thisAccount.usedNumbers.length;
 			thisAccount.countSpareNumbers = thisAccount.spareNumbers.length;
 			thisAccount.open = 'open';
@@ -180,7 +190,7 @@ define(function(require) {
 				listSearchedAccounts = [ self.accountId ],
 				showLinks = function() {
 					var methodToUse = parent.find('.number-box.selected').size() > 0 ? 'addClass' : 'removeClass';
-					parent.find('#trigger_links')[methodToUse]('active');
+					parent.find('.list-numbers:visible #trigger_links')[methodToUse]('active');
 				},
 				displayNumberList = function(accountId, callback, forceRefresh) {
 					var alreadySearched = _.indexOf(listSearchedAccounts, accountId) >= 0,
@@ -218,8 +228,10 @@ define(function(require) {
 								if (value.id === accountId) {
 									value.spareNumbers = spareNumbers.sort(sortByName);
 									value.usedNumbers = usedNumbers.sort(sortByName);
+									value.externalNumbers = numbers.externalNumbers;
 									value.countSpareNumbers = spareNumbers.length;
 									value.countUsedNumbers = usedNumbers.length;
+									value.countExternalNumbers = numbers.externalNumbers.length;
 
 									parent
 										.find('.list-numbers[data-type="spare"] .account-section[data-id="' + accountId + '"] .numbers-wrapper')
@@ -255,6 +267,21 @@ define(function(require) {
 
 									self.numbersDisplayFeaturesMenu(usedNumbers, parent.find('.list-numbers[data-type="used"] .account-section[data-id="' + accountId + '"]'));
 
+									parent
+										.find('.list-numbers[data-type="external"] .account-section[data-id="' + accountId + '"] .numbers-wrapper')
+										.empty()
+										.append($(self.getTemplate({
+											name: 'externalAccount',
+											data: {
+												viewType: dataNumbers.viewType,
+												externalNumbers: numbers.externalNumbers
+											},
+											submodule: 'numbers'
+										})))
+										.parent()
+										.find('.count')
+										.html('(' + numbers.externalNumbers.length + ')');
+
 									return false;
 								}
 							});
@@ -276,6 +303,7 @@ define(function(require) {
 				parent.find('.list-numbers[data-type="used"]').hide();
 				parent.find('.half-box[data-type="spare"]').addClass('selected');
 			}
+			parent.find('.list-numbers[data-type="external"]').hide();
 
 			/* Events */
 			/* Toggle between spare/used numbers view */
@@ -818,6 +846,325 @@ define(function(require) {
 					}
 				}
 			});
+
+			self.numbersBindExternalNumbersEvents(parent, dataNumbers);
+		},
+
+		numbersBindExternalNumbersEvents: function(parent, dataNumbers) {
+			var self = this,
+				container = parent.find('.list-numbers[data-type="external"]'),
+				deleteNumbers = function(selectedNumbersMetadata) {
+					var selectedAccountsMetadata = _
+							.chain(selectedNumbersMetadata)
+							.uniqBy('accountId')
+							.map(
+								_.partial(_.pick, _, [
+									'accountId',
+									'accountName'
+								])
+							)
+							.value(),
+						numbersToDelete = _.map(selectedNumbersMetadata, 'number'),
+						dataTemplate = {
+							remove: true,
+							numberCount: _.size(numbersToDelete),
+							accountList: _.map(selectedAccountsMetadata, function(data) {
+								return _.merge({
+									numbers: _
+										.chain(selectedNumbersMetadata)
+										.filter({ accountId: data.accountId })
+										.map('number')
+										.value()
+								}, data);
+							})
+						},
+						dialogTemplate = $(self.getTemplate({
+							name: 'actionsConfirmation',
+							data: dataTemplate,
+							submodule: 'numbers'
+						})),
+						popup = monster.ui.dialog(dialogTemplate, {
+							width: '540px',
+							title: 'Delete Numbers - Confirmation'
+						});
+
+					dialogTemplate.on('click', '.remove-number', function() {
+						var number = $(this).parent().data('number');
+
+						if (_.includes(numbersToDelete, number)) {
+							var tbody = $(this).parent().parent().parent(),
+								childCount = tbody[0].childElementCount,
+								numbersCount = dialogTemplate.find('h4').find('span');
+
+							_.remove(numbersToDelete, _.partial(_.isEqual, number));
+							$(this).parent().parent().remove();
+
+							if (childCount === 1) {
+								tbody[0].previousElementSibling.remove();
+								tbody.remove();
+							}
+							numbersCount.text(numbersCount.text() - 1);
+						}
+						if (_.isEmpty(numbersToDelete)) {
+							popup.dialog('close');
+						}
+					});
+
+					dialogTemplate.on('click', '.cancel-link', function() {
+						popup.dialog('close');
+					});
+
+					dialogTemplate.on('click', '#delete_action', function() {
+						monster.parallel(async.reflectAll(_
+							.chain(selectedNumbersMetadata)
+							.filter(_.flow(
+								_.partial(_.get, _, 'number'),
+								_.partial(_.includes, numbersToDelete)
+							))
+							.reduce(function(requests, metadata) {
+								_.set(requests, _.join([
+									metadata.accountId,
+									metadata.id
+								]), function(next) {
+									self.callApi({
+										resource: 'externalNumbers.delete',
+										data: {
+											accountId: metadata.accountId,
+											numberId: metadata.id
+										},
+										success: _.partial(next, null),
+										error: next
+									});
+								});
+
+								return requests;
+							}, {})
+							.value()
+						), function(err, results) {
+							var formattedResults = _.map(results, function(data, id) {
+								var ids = _.split(id, ','),
+									accountId = _.head(ids),
+									numberId = _.last(ids),
+									number = _
+										.chain(selectedNumbersMetadata)
+										.find({
+											accountId: accountId,
+											id: numberId
+										})
+										.get('number')
+										.value();
+
+								return _.merge({
+									number: number
+								}, _.pick(data, [
+									'error'
+								]));
+							});
+
+							popup.dialog('close');
+							self.numbersShowDeletedNumbers({
+								success: _
+									.chain(formattedResults)
+									.filter(_.flow(
+										_.partial(_.ary(_.get, 2), _, 'error'),
+										_.isUndefined
+									))
+									.map('number')
+									.keyBy()
+									.value(),
+								error: _
+									.chain(formattedResults)
+									.reject(_.flow(
+										_.partial(_.ary(_.get, 2), _, 'error'),
+										_.isUndefined
+									))
+									.keyBy('number')
+									.mapValues(function(data) {
+										return {
+											message: data.error
+										};
+									})
+									.value()
+							});
+
+							_.forEach(results, function(data, id) {
+								var ids = _.split(id, ','),
+									accountId = _.head(ids),
+									numberId = _.last(ids),
+									number = _
+										.chain(selectedNumbersMetadata)
+										.find({
+											accountId: accountId,
+											id: numberId
+										})
+										.get('number')
+										.value(),
+									accountNode = _.find(dataNumbers.listAccounts, {
+										id: accountId
+									});
+
+								_.set(accountNode, 'externalNumbers', _.reject(accountNode.externalNumbers, {
+									number: number
+								}));
+							});
+							self.numbersRenderExternal({
+								parent: parent,
+								dataNumbers: dataNumbers
+							});
+						});
+					});
+				};
+
+			container.on('click', '#add', function(event) {
+				event.preventDefault();
+
+				monster.pub('common.cidNumber.renderAdd', {
+					accountId: self.accountId,
+					onVerified: function(numberMetadata) {
+						var accountNode = _.find(dataNumbers.listAccounts, {
+							id: self.accountId
+						});
+
+						_.set(accountNode, 'externalNumbers', _
+							.chain(accountNode)
+							.get('externalNumbers', [])
+							.concat(numberMetadata)
+							.value()
+						);
+						self.numbersRenderExternal({
+							parent: parent,
+							dataNumbers: dataNumbers
+						});
+					}
+				});
+			});
+
+			container.on('click', '.add', function(event) {
+				event.preventDefault();
+
+				var accountId = $(this).parents('.account-section').data('id');
+
+				monster.pub('common.cidNumber.renderAdd', {
+					accountId: accountId,
+					onVerified: function(numberMetadata) {
+						var accountNode = _.find(dataNumbers.listAccounts, {
+							id: accountId
+						});
+
+						_.set(accountNode, 'externalNumbers', _
+							.chain(accountNode)
+							.get('externalNumbers', [])
+							.concat(numberMetadata)
+							.value()
+						);
+						self.numbersRenderExternal({
+							parent: parent,
+							dataNumbers: dataNumbers
+						});
+					}
+				});
+			});
+
+			container.on('click', '#delete_external_numbers', function(event) {
+				event.preventDefault();
+
+				var selectedNumbersMetadata = _.map(parent.find('.number-box:visible.selected'), function(el) {
+					var $el = $(el),
+						$account = $el.parents('.account-section');
+
+					return _.merge({
+						accountId: $account.data('id'),
+						accountName: $account.data('name')
+					}, _.pick($el.data(), [
+						'id',
+						'number'
+					]));
+				});
+
+				deleteNumbers(selectedNumbersMetadata);
+			});
+
+			container.on('click', '.verify', function(event) {
+				event.preventDefault();
+
+				var $numberBox = $(this).parents('.number-box'),
+					$accountSection = $numberBox.parents('.account-section'),
+					accountId = $accountSection.data('id'),
+					numberMetadata = {
+						accountId: accountId,
+						numberId: $numberBox.data('id'),
+						phoneNumber: $numberBox.data('number')
+					};
+
+				monster.pub('common.cidNumber.renderVerify', _.merge({
+					deleteUnverifiedOnClose: false,
+					onVerified: function(metadata) {
+						var accountNode = _.find(dataNumbers.listAccounts, {
+							id: accountId
+						});
+
+						_.set(accountNode, 'externalNumbers', _
+							.chain(accountNode.externalNumbers)
+							.reject({
+								id: metadata.id
+							})
+							.concat(metadata)
+							.value()
+						);
+						self.numbersRenderExternal({
+							parent: parent,
+							dataNumbers: dataNumbers
+						});
+					}
+				}, numberMetadata));
+			});
+
+			container.on('click', '.force-verify', function(event) {
+				event.preventDefault();
+
+				var $numberBox = $(this).parents('.number-box'),
+					$accountSection = $numberBox.parents('.account-section'),
+					accountId = $accountSection.data('id');
+
+				monster.pub('common.cidNumber.forceVerify', {
+					accountId: accountId,
+					numberId: $numberBox.data('id'),
+					onVerified: function(metadata) {
+						var accountNode = _.find(dataNumbers.listAccounts, {
+							id: accountId
+						});
+
+						_.set(accountNode, 'externalNumbers', _
+							.chain(accountNode.externalNumbers)
+							.reject(_.pick(metadata, [
+								'id'
+							]))
+							.concat(metadata)
+							.value()
+						);
+						self.numbersRenderExternal({
+							parent: parent,
+							dataNumbers: dataNumbers
+						});
+					}
+				});
+			});
+
+			container.on('click', '.delete', function(event) {
+				event.preventDefault();
+
+				var $numberBox = $(this).parents('.number-box'),
+					$accountSection = $numberBox.parents('.account-section'),
+					numberMetadata = _.merge({
+						accountId: $accountSection.data('id'),
+						accountName: $accountSection.data('name')
+					}, _.pick($numberBox.data(), [
+						'id',
+						'number'
+					]));
+
+				deleteNumbers([numberMetadata]);
+			});
 		},
 
 		numbersGetSubAccountNumber: function(accountId, number, callback) {
@@ -834,7 +1181,7 @@ define(function(require) {
 					callback && callback(data.data);
 				},
 				error: function(parsedError, error, globalHandler) {
-					if (error.status === 403) {
+					if ([403, 404].includes(error.status)) {
 						monster.ui.alert(self.i18n.active().numbers.dialogAlertNowAllowed.info);
 					} else {
 						globalHandler(parsedError, { generateError: true });
@@ -1079,6 +1426,52 @@ define(function(require) {
 				.append(template);
 
 			self.numbersDisplayFeaturesMenu(arrayNumbersSpare, template);
+
+			args.hasOwnProperty('callback') && args.callback();
+		},
+
+		numbersRenderExternal: function(args) {
+			var self = this,
+				dataNumbers = args.dataNumbers,
+				template = $(self.getTemplate({
+					name: 'external',
+					data: _.merge({
+						listAccounts: _.map(dataNumbers.listAccounts, function(account) {
+							var verified = _
+									.chain(account.externalNumbers)
+									.filter('verified')
+									.sortBy('number')
+									.value(),
+								unverified = _
+									.chain(account.externalNumbers)
+									.reject('verified')
+									.sortBy('number')
+									.value(),
+								all = _.flatten([
+									verified,
+									unverified
+								]);
+
+							return _.merge({
+								countExternalNumbers: _.size(all),
+								externalNumbers: all
+							}, _.omit(account, [
+								'countExternalNumbers',
+								'externalNumbers'
+							]));
+						})
+					}, _.omit(dataNumbers, [
+						'listAccounts'
+					])),
+					submodule: 'numbers'
+				}));
+
+			monster.ui.tooltips(template);
+
+			args.parent
+				.find('.list-numbers[data-type="external"]')
+				.empty()
+				.append(template);
 
 			args.hasOwnProperty('callback') && args.callback();
 		},
@@ -1328,6 +1721,24 @@ define(function(require) {
 					self.numbersListNumbers(accountId, function(numbers) {
 						callback && callback(null, numbers);
 					}, pListType);
+				},
+				externalNumbers: function(callback) {
+					if (!monster.util.getCapability('caller_id.external_numbers').isEnabled) {
+						return callback(null, []);
+					}
+					self.callApi({
+						resource: 'externalNumbers.list',
+						data: {
+							accountId: accountId,
+							filters: {
+								paginate: false
+							}
+						},
+						success: _.flow(
+							_.partial(_.get, _, 'data'),
+							_.partial(callback, null)
+						)
+					});
 				}
 			}, function(err, results) {
 				self.numbersFormatList(accountId, results);
@@ -1399,6 +1810,8 @@ define(function(require) {
 				}
 				$.extend(true, data.numbers.numbers[mdn], mobileOwner);
 			});
+
+			_.set(data, 'numbers.externalNumbers', data.externalNumbers);
 
 			return data;
 		},
@@ -1523,6 +1936,8 @@ define(function(require) {
 					phoneNumber: phoneNumber
 				},
 				success: function(_data, status) {
+					_data.data['metadata'] = _.get(_data, 'metadata', {});
+
 					success && success(_data.data);
 				},
 				error: function(_data, status) {

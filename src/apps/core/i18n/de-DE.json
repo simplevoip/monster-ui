@@ -172,6 +172,10 @@
 		"americanEnglish": "Englisch (en-US)",
 		"frenchFrench": "Französisch (fr-FR)",
 		"russianRussian": "Russisch (ru-RU)",
+		"germanGerman": "Deutsch (de-DE)",
+		"spanishSpain": "Spanisch (es-ES)",
+		"britishEnglish": "Englisch (en-GB)",
+		"canadianFrench": "Französisch (fr-CA)",
 		"__comment": "Spanisch zur Sprachauswahlliste in Mein Account hinzugefügt",
 		"__version": "v3.22",
 		"spainSpanish": "Spanisch (es-ES)"
@@ -750,11 +754,7 @@
 	"__version": "v4.0",
 	"tablePageSize": {
 		"show": "Anzeigen",
-		"entries": "Einträge",
-		"ten": "10",
-		"twentyFive": "25",
-		"fifty": "50",
-		"hundred": "100"
+		"entries": "Einträge"
 	},
 
 	"__comment": "UI-2596: Hinzufügen von ISO-Ländern zur Internationalisierung",

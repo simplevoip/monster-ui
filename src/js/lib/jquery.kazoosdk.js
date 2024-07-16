@@ -31,7 +31,7 @@
 				'patch': { verb: 'PATCH', url: 'accounts/{accountId}' },
 				'delete': { verb: 'DELETE', url: 'accounts/{accountId}' },
 				'listDescendants': { verb: 'GET', url: 'accounts/{accountId}/descendants' },
-				'listChildren': { verb: 'GET', url: 'accounts/{accountId}/children' },
+				'listChildren': { verb: 'GET', url: 'accounts/{accountId}/children?ascending=true' },
 				'listParents': { verb: 'GET', url: 'accounts/{accountId}/tree' },
 				'searchByName': { verb: 'GET', url: 'search?t=account&q=name&v={accountName}' },
 				'searchAll': { verb: 'GET', url: 'search/multi?t=account&by_name={searchValue}&by_realm={searchValue}&by_id={searchValue}' },
@@ -53,7 +53,12 @@
 				'add': { verb: 'PUT', 'url': 'accounts/{accountId}/apps_store/{appId}' },
 				'delete': { verb: 'DELETE', 'url': 'accounts/{accountId}/apps_store/{appId}' },
 				'getBlacklist': { verb: 'GET', 'url': 'accounts/{accountId}/apps_store/blacklist' },
-				'updateBlacklist': { verb: 'POST', 'url': 'accounts/{accountId}/apps_store/blacklist' }
+				'updateBlacklist': { verb: 'POST', 'url': 'accounts/{accountId}/apps_store/blacklist' },
+				'updateIcon': { verb: 'POST', 'url': 'accounts/{accountId}/apps_store/{appId}/override/icon' },
+				'getOverride': { verb: 'GET', 'url': 'accounts/{accountId}/apps_store/{appId}/override' },
+				'createOverride': { verb: 'PUT', 'url': 'accounts/{accountId}/apps_store/{appId}/override' },
+				'updateOverride': { verb: 'POST', 'url': 'accounts/{accountId}/apps_store/{appId}/override' },
+				'deleteOverride': { verb: 'DELETE', 'url': 'accounts/{accountId}/apps_store/{appId}/override' }
 			},
 			auth: {
 				'get': { verb: 'GET', url: 'auth/tokeninfo?token={token}', removeHeaders: ['X-Auth-Token'] },
@@ -67,7 +72,9 @@
 			},
 			billing: {
 				'get': { verb: 'GET', url: 'accounts/{accountId}/braintree/customer' },
-				'update': { verb: 'POST', url: 'accounts/{accountId}/braintree/customer' }
+				'update': { verb: 'POST', url: 'accounts/{accountId}/braintree/customer' },
+				'deleteCard': { verb: 'DELETE', url: 'accounts/{accountId}/braintree/cards/{cardId}' },
+				'getToken': { verb: 'GET', url: 'accounts/{accountId}/braintree/client_token' }
 			},
 			blacklist: {
 				'list': { verb: 'GET', url: 'accounts/{accountId}/blacklists' },
@@ -134,7 +141,7 @@
 				'getIntegration': { verb: 'GET', url: 'accounts/{accountId}/crm_integration' },
 				'createIntegration': { verb: 'PUT', url: 'accounts/{accountId}/crm_integration' },
 				'getTrigger': { verb: 'GET', url: 'accounts/{accountId}/crm_integration/triggers/{triggerId}' },
-				'listTriggers': { verb: 'GET', url: 'accounts/{accountId}/crm_integration/triggers'},
+				'listTriggers': { verb: 'GET', url: 'accounts/{accountId}/crm_integration/triggers' },
 				'createTrigger': { verb: 'PUT', url: 'accounts/{accountId}/crm_integration/triggers' },
 				'updateTrigger': { verb: 'POST', url: 'accounts/{accountId}/crm_integration/triggers/{triggerId}' },
 				'patchTrigger': { verb: 'PATCH', url: 'accounts/{accountId}/crm_integration/triggers/{triggerId}' },
@@ -178,6 +185,14 @@
 				'update': { verb: 'POST', url: 'accounts/{accountId}/directories/{directoryId}' },
 				'delete': { verb: 'DELETE', url: 'accounts/{accountId}/directories/{directoryId}' },
 				'list': { verb: 'GET', url: 'accounts/{accountId}/directories' }
+			},
+			externalNumbers: {
+				get: { verb: 'GET', url: 'accounts/{accountId}/external_numbers/{numberId}' },
+				create: { verb: 'PUT', url: 'accounts/{accountId}/external_numbers' },
+				'delete': { verb: 'DELETE', url: 'accounts/{accountId}/external_numbers/{numberId}' },
+				list: { verb: 'GET', url: 'accounts/{accountId}/external_numbers' },
+				verify: { verb: 'PUT', url: 'accounts/{accountId}/external_numbers/{numberId}/verify' },
+				submitPin: { verb: 'POST', url: 'accounts/{accountId}/external_numbers/{numberId}/verify' }
 			},
 			faxbox: {
 				'get': { verb: 'GET', url: 'accounts/{accountId}/faxboxes/{faxboxId}' },
@@ -303,7 +318,7 @@
 				'delete': { verb: 'DELETE', url: 'accounts/{accountId}/phone_numbers/{phoneNumber}' },
 				'deleteBlock': { verb: 'DELETE', url: 'accounts/{accountId}/phone_numbers/collection' },
 				'identify': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers/{phoneNumber}/identify' },
-				'list': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers?filter_state=["in_service","port_in"]' },
+				'list': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers?filter_state=' + encodeURIComponent('["in_service","port_in"]') },
 				'listAll': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers' },
 				'listClassifiers': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers/classifiers' },
 				'matchClassifier': { verb: 'GET', url: 'accounts/{accountId}/phone_numbers/classifiers/{phoneNumber}' },
@@ -504,7 +519,9 @@
 				'quickcall': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/quickcall/{number}' },
 				'hotdesks': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/hotdesks' },
 				'updatePresence': { verb: 'POST', url: 'accounts/{accountId}/users/{userId}/presence' },
-				'listDevices': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/devices' }
+				'listDevices': { verb: 'GET', url: 'accounts/{accountId}/users/{userId}/devices' },
+				'updateChatStatus': { verb: 'PATCH', url: 'accounts/{accountId}/users/{userId}/getstream' },
+				'listUsersWithChat': { verb: 'GET', url: 'accounts/{accountId}/users/getstream' },
 			},
 			voicemail: {
 				'get': { verb: 'GET', url: 'accounts/{accountId}/vmboxes/{voicemailId}' },
@@ -562,7 +579,18 @@
 				'previewNotification': { verb: 'POST', url: 'accounts/{accountId}/notifications/{notificationId}/preview' },
 				'deleteNotification': { verb: 'DELETE', url: 'accounts/{accountId}/notifications/{notificationId}' },
 				'getDnsEntries': { verb: 'GET', url: 'accounts/{accountId}/whitelabel/domains' },
-				'checkDnsEntries': { verb: 'POST', url: 'accounts/{accountId}/whitelabel/domains?domain={domain}' }
+				'checkDnsEntries': { verb: 'POST', url: 'accounts/{accountId}/whitelabel/domains?domain={domain}&use_tcp={useTcp}' }
+			},
+			matchList: {
+				'list': { 'verb': 'GET', 'url': 'accounts/{accountId}/match_lists/' },
+				'create': { 'verb': 'PUT', 'url': 'accounts/{accountId}/match_lists' },
+				'get': { 'verb': 'GET', 'url': 'accounts/{accountId}/match_lists/{matchListId}' },
+				'update': { 'verb': 'POST', 'url': 'accounts/{accountId}/match_lists/{matchListId}' },
+				'patch': { 'verb': 'PATCH', 'url': 'accounts/{accountId}/match_lists/{matchListId}' },
+				'delete': { 'verb': 'DELETE', 'url': 'accounts/{accountId}/match_lists/{matchListId}' }
+			},
+			configs: {
+				'get': { 'verb': 'GET', 'url': 'accounts/{accountId}/configs/{endpoint}' }
 			}
 		},
 		authTokens = {};
@@ -604,12 +632,7 @@
 							ids = $.map(methodInfo.url.match(/{([^}]+)}/g) || [], function(v) { return v.replace(/{|}/g, ''); });
 
 						if ('filters' in methodSettings) {
-							$.each(methodSettings.filters, function(filterKey, filterValue) {
-								var valueArray = [].concat(filterValue);
-								$.each(valueArray, function(key, value) {
-									requestSettings.url += (requestSettings.url.indexOf('?') > 0 ? '&' : '?') + filterKey + '=' + encodeURIComponent(value);
-								});
-							});
+							requestSettings.url += (requestSettings.url.indexOf('?') > 0 ? '&' : '?') + parametersToQueryString(methodSettings.filters);
 						}
 
 						if (methodInfo.hasOwnProperty('type')) { requestSettings.type = methodInfo.type; }
@@ -653,6 +676,24 @@
 			throw new Error('You must provide a valid apiRoot.');
 		}
 	};
+
+	function parametersToQueryString(params) {
+		var keyPrefixesSupportingJSONArrayValues = /(?:^filter_(?:any|array_intersect_(?:any|none|all)|none)_.+)|^fields$/;
+		return Object
+			.keys(params)
+			.map(function(key) {
+				var values = [].concat(params[key]);
+				var formattedValues = keyPrefixesSupportingJSONArrayValues.test(key) ? [
+					JSON.stringify(values)
+				] : values;
+				return formattedValues
+					.map(function(value) {
+						return [key, encodeURIComponent(value)].join('=');
+					})
+					.join('&');
+			})
+			.join('&');
+	}
 
 	function authFunction(settings, defaultSettings, url) {
 		var apiRoot = settings.apiRoot || defaultSettings.apiRoot;

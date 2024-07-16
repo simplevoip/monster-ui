@@ -40,10 +40,10 @@ define(function(require) {
 					carriers: carriers
 				};
 
-			if (dataNumber.hasOwnProperty('_read_only') && dataNumber._read_only.hasOwnProperty('carrier_module')) {
+			if (dataNumber.hasOwnProperty('metadata') && dataNumber.metadata.hasOwnProperty('carrier_module')) {
 				_.each(carriers, function(carrier) {
-					if (dataNumber._read_only.carrier_module === carrier.key) {
-						formattedData.selectedCarrier = dataNumber._read_only.carrier_module;
+					if (dataNumber.metadata.carrier_module === carrier.key) {
+						formattedData.selectedCarrier = dataNumber.metadata.carrier_module;
 					}
 				});
 
@@ -126,6 +126,7 @@ define(function(require) {
 
 			// The back-end doesn't let us set features anymore, they return the field based on the key set on that document.
 			delete data.features;
+			delete data.metadata;
 
 			self.callApi({
 				resource: 'numbers.update',

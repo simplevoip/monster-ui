@@ -39,6 +39,7 @@ define(function(require) {
 		getCurrentUserDefaultApp: getCurrentUserDefaultApp,
 		getDefaultNumbersFormat: getDefaultNumbersFormat,
 		getDefaultRangeDates: getDefaultRangeDates,
+		getFeatureConfig: getFeatureConfig,
 		getFormatPhoneNumber: getFormatPhoneNumber,
 		getModbID: getModbID,
 		getNextExtension: getNextExtension,
@@ -51,6 +52,7 @@ define(function(require) {
 		gregorianToDate: gregorianToDate,
 		guid: guid,
 		isAdmin: isAdmin,
+		isFeatureAvailable: isFeatureAvailable,
 		isJSON: isJSON,
 		isLoggedIn: isLoggedIn,
 		isMasquerading: isMasquerading,
@@ -64,6 +66,7 @@ define(function(require) {
 		listAppsMetadata: listAppsMetadata,
 		listAppStoreMetadata: listAppStoreMetadata,
 		listAppLinks: listAppLinks,
+		parseQueryString: parseQueryString,
 		protectSensitivePhoneNumbers: protectSensitivePhoneNumbers,
 		randomString: randomString,
 		reload: reload,
@@ -78,8 +81,33 @@ define(function(require) {
 		},
 		unformatPhoneNumber: unformatPhoneNumber,
 		unixToDate: unixToDate,
-		updateImagePath: updateImagePath
+		updateImagePath: updateImagePath,
+		isAuthorizedTopicForCrossSiteMessaging: isAuthorizedTopicForCrossSiteMessaging
 	};
+
+	function isAuthorizedTopicForCrossSiteMessaging(topicName) {
+		var TopicForCrossSiteMessaging = [
+			'voip.tab.myOffice',
+			'voip.tab.numbers',
+			'voip.tab.users',
+			'voip.tab.groups',
+			'voip.tab.strategy',
+			'voip.tab.callLogs',
+			'voip.tab.devices',
+			'voip.tab.vmboxes',
+			'voip.tab.featureCodes'
+		];
+
+		return TopicForCrossSiteMessaging.includes(topicName);
+	}
+
+	function getFeatureConfig(featurePath, defaultValue) {
+		return _.get(monster.apps.auth.appFlags.featureSet, featurePath, defaultValue);
+	}
+
+	function isFeatureAvailable(featurePath) {
+		return _.get(monster.apps.auth.appFlags.featureSet, featurePath, true);
+	}
 
 	/**
 	 * Returns a randomly generated realm based on the logged in account's whitelabel document.
@@ -569,14 +597,19 @@ define(function(require) {
 		}, _.includes(['alpha', 'beta'], app.phase) && {
 			extraCssClass: app.phase + '-overlay-icon'
 		});
+		var supportedLocales = _.keys(app.i18n);
 		var locale = _.find([
 			monster.config.whitelabel.language,
 			monster.defaultLanguage,
-			_.head(_.keys(app.i18n))
+			_.head(supportedLocales)
 		], _.partial(_.has, app.i18n));
 		var activeI18n = _.get(app.i18n, locale);
 
-		return _.merge({}, _.omit(app, 'i18n'), activeI18n, iconMetadata);
+		return _.merge({
+			supportedLocales: supportedLocales
+		}, _.omit(app, [
+			'i18n'
+		]), activeI18n, iconMetadata);
 	}
 
 	/**
@@ -899,7 +932,13 @@ define(function(require) {
 	function getDefaultNumbersFormat() {
 		var account = _.get(monster.apps, 'auth.originalAccount', {});
 
-		return _.get(account, 'ui_flags.numbers_format', 'international');
+		return _.find([
+			_.get(account, 'ui_flags.numbers_format'),
+			'international'
+		], _.overEvery(
+			_.isString,
+			_.negate(_.isEmpty)
+		));
 	}
 
 	/**
@@ -932,21 +971,21 @@ define(function(require) {
 			_.toString(input),
 			monster.config.whitelabel.countryCode
 		);
-		var user = _.get(monster, 'apps.auth.currentUser', {});
-		var account = _.get(monster, 'apps.auth.originalAccount', {});
+		var userFlags = _.get(monster, 'apps.auth.currentUser.ui_flags', {});
+		var accountFlags = _.get(monster, 'apps.auth.originalAccount.ui_flags', {});
 		var formattedData = {
 			isValid: false,
 			originalNumber: input,
 			userFormat: input // Setting it as a default, in case the number is not valid
 		};
-		var getUserFormatFromEntity = function(entity, data) {
+		var getUserFormatFromFlags = function(flags, data) {
 			var isException = _.flow(
-				_.partial(_.get, _, 'ui_flags.numbers_format_exceptions', []),
+				_.partial(_.get, _, 'numbers_format_exceptions', []),
 				_.partial(_.includes, _, _.get(data, 'country.code'))
 			);
-			var rawFormat = entity.ui_flags.numbers_format;
+			var rawFormat = flags.numbers_format;
 			var format = rawFormat !== 'international_with_exceptions' ? rawFormat
-				: isException(entity) ? 'national'
+				: isException(flags) ? 'national'
 				: 'international';
 			var formatter = _.get({
 				national: _.partial(_.get, _, 'nationalFormat'),
@@ -974,15 +1013,15 @@ define(function(require) {
 				numberType: phoneNumber.getType()
 			});
 
-			if (_.get(user, 'ui_flags.numbers_format', 'inherit') !== 'inherit') {
+			if (_.get(userFlags, 'numbers_format', 'inherit') !== 'inherit') {
 				_.merge(formattedData, {
-					userFormat: getUserFormatFromEntity(user, formattedData),
-					userFormatType: _.get(user, 'ui_flags.numbers_format')
+					userFormat: getUserFormatFromFlags(userFlags, formattedData),
+					userFormatType: _.get(userFlags, 'numbers_format')
 				});
-			} else if (_.has(account, 'ui_flags.numbers_format')) {
+			} else if (_.get(accountFlags, 'numbers_format', '') !== '') {
 				_.merge(formattedData, {
-					userFormat: getUserFormatFromEntity(account, formattedData),
-					userFormatType: _.get(account, 'ui_flags.numbers_format')
+					userFormat: getUserFormatFromFlags(accountFlags, formattedData),
+					userFormatType: _.get(accountFlags, 'numbers_format')
 				});
 			} else {
 				_.merge(formattedData, {
@@ -1128,7 +1167,7 @@ define(function(require) {
 			throw new TypeError('"number" is not an object');
 		}
 		var pathToFeatures = _.find([
-			'_read_only.features.available',
+			'metadata.features.available',
 			'features_available'
 		], function(path) {
 			return _.has(number, path);
@@ -1199,73 +1238,6 @@ define(function(require) {
 			}
 
 			return search;
-		};
-		/**
-		 * @param  {String} queryString
-		 * @return {Object}
-		 */
-		var parseQueryString = function(queryString) {
-			var pair;
-			var paramKey;
-			var paramValue;
-
-			// if query string is empty exit early
-			if (!queryString) {
-				return {};
-			}
-
-			return _
-				.chain(queryString)
-				// anything after # is not part of the query string, so get rid of it
-				.split('#', 1)
-				.toString()
-				// split our query string into its component parts
-				.split('&')
-				// prase query string key/value pairs
-				.transform(function(acc, component) {
-					// separate each component in key/value pair
-					pair = component.split('=');
-
-					// set parameter name and value (use 'true' if empty)
-					paramKey = pair[0];
-					paramValue = _.isUndefined(pair[1]) ? true : pair[1];
-
-					// if the paramKey ends with square brackets, e.g. colors[] or colors[2]
-					if (paramKey.match(/\[(\d+)?\]$/)) {
-						// create key if it doesn't exist
-						var key = paramKey.replace(/\[(\d+)?\]/, '');
-						if (!acc[key]) {
-							acc[key] = [];
-						}
-
-						// if it's an indexed array e.g. colors[2]
-						if (paramKey.match(/\[\d+\]$/)) {
-							// get the index value and add the entry at the appropriate position
-							var index = /\[(\d+)\]/.exec(paramKey)[1];
-							acc[key][index] = paramValue;
-						} else {
-							// otherwise add the value to the end of the array
-							acc[key].push(paramValue);
-						}
-					} else {
-						// we're dealing with a string
-						if (!acc[paramKey]) {
-							// if it doesn't exist, create property
-							acc[paramKey] = paramValue;
-						} else if (
-							acc[paramKey]
-							&& _.isString(acc[paramKey])
-						) {
-							// if property does exist and it's a string, convert it to an array
-							acc[paramKey] = [acc[paramKey]];
-							acc[paramKey].push(paramValue);
-						} else {
-							// otherwise add the property
-							acc[paramKey].push(paramValue);
-						}
-					}
-				}, {})
-				.value();
 		};
 		/**
 		 * @param  {Object} params
@@ -1620,6 +1592,75 @@ define(function(require) {
 			.reject(hasInvalidProps)
 			.value();
 	}
+
+	/**
+	 * Parses a query string into an object
+	 * @param  {String} queryString Query string to be parsed
+	 * @return {Object}             Object representation of the query string parameters
+	 */
+	function parseQueryString(queryString) {
+		var pair;
+		var paramKey;
+		var paramValue;
+
+		// if query string is empty exit early
+		if (!queryString) {
+			return {};
+		}
+
+		return _
+			.chain(queryString)
+			// anything after # is not part of the query string, so get rid of it
+			.split('#', 1)
+			.toString()
+			// split our query string into its component parts
+			.split('&')
+			// prase query string key/value pairs
+			.transform(function(acc, component) {
+				// separate each component in key/value pair
+				pair = component.split('=');
+
+				// set parameter name and value (use 'true' if empty)
+				paramKey = pair[0];
+				paramValue = _.isUndefined(pair[1]) ? true : pair[1];
+
+				// if the paramKey ends with square brackets, e.g. colors[] or colors[2]
+				if (paramKey.match(/\[(\d+)?\]$/)) {
+					// create key if it doesn't exist
+					var key = paramKey.replace(/\[(\d+)?\]/, '');
+					if (!acc[key]) {
+						acc[key] = [];
+					}
+
+					// if it's an indexed array e.g. colors[2]
+					if (paramKey.match(/\[\d+\]$/)) {
+						// get the index value and add the entry at the appropriate position
+						var index = /\[(\d+)\]/.exec(paramKey)[1];
+						acc[key][index] = paramValue;
+					} else {
+						// otherwise add the value to the end of the array
+						acc[key].push(paramValue);
+					}
+				} else {
+					// we're dealing with a string
+					if (!acc[paramKey]) {
+						// if it doesn't exist, create property
+						acc[paramKey] = paramValue;
+					} else if (
+						acc[paramKey]
+						&& _.isString(acc[paramKey])
+					) {
+						// if property does exist and it's a string, convert it to an array
+						acc[paramKey] = [acc[paramKey]];
+						acc[paramKey].push(paramValue);
+					} else {
+						// otherwise add the property
+						acc[paramKey].push(paramValue);
+					}
+				}
+			}, {})
+			.value();
+	};
 
 	/**
 	 * Function used to replace displayed phone numbers by "fake" numbers.

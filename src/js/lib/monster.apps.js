@@ -3,6 +3,11 @@ define(function() {
 		_ = require('lodash'),
 		monster = require('monster');
 
+	var baseApps = [
+		'auth',
+		'core'
+	];
+
 	var apps = {
 		// Global var used to show the loading gif
 		uploadProgress: {
@@ -13,6 +18,37 @@ define(function() {
 
 		monsterizeApp: function(app, callback) {
 			var self = this;
+
+			app.css = _
+				.chain([
+					'app',
+					_.isArray(app.css) ? app.css : []
+				])
+				.flatten()
+				.uniq()
+				.value();
+			app.i18n = _
+				.chain({})
+				.set(monster.defaultLanguage, {
+					customCss: false
+				})
+				.merge(_.isPlainObject(app.i18n) ? app.i18n : {})
+				.value();
+
+			if (!_.includes(baseApps, app.name)) {
+				app.initApp = _.flow(
+					_.partial(_.set, { app: app }, 'callback'),
+					_.partial(monster.pub, 'auth.initApp')
+				);
+				app.load = function(callback) {
+					app.initApp(function() {
+						if (app.name === 'myaccount') {
+							app.render();
+						}
+						callback && callback(app);
+					});
+				};
+			}
 
 			_.each(app.requests, function(request, id) {
 				monster._defineRequest(id, request, app);
@@ -535,6 +571,12 @@ define(function() {
 						return callback(null);
 					}
 					if (!_.has(app.i18n, language)) {
+						if (_.includes(window.location.hash, app.appPath)) {
+							monster.ui.toast({
+								type: 'info',
+								message: 'The default language isn\'t supported for the selected app, switching automatically to ' + monster.defaultLanguage
+							});
+						}
 						console.info(language + ' isn\'t a supported language by this application: ' + app.name);
 						return callback(null);
 					}
@@ -556,6 +598,9 @@ define(function() {
 				if (err) {
 					return mainCallback && mainCallback(err);
 				}
+
+				var loadedLanguages = _.keys(app.data.i18n);
+
 				// We'll merge the Core I18n once we're done loading the different I18n coming with the application
 				if (monster.apps.hasOwnProperty('core')) {
 					$.extend(true, app.data.i18n, monster.apps.core.data.i18n);
@@ -564,11 +609,10 @@ define(function() {
 				// add an active property method to the i18n array within the app.
 				_.extend(app.i18n, {
 					active: function() {
-						var loadedLanguages = _.keys(app.data.i18n),
-							language = _.find([
-								monster.config.whitelabel.language,
-								monster.defaultLanguage
-							], _.partial(_.includes, loadedLanguages));
+						var language = _.find([
+							monster.config.whitelabel.language,
+							monster.defaultLanguage
+						], _.partial(_.includes, loadedLanguages));
 
 						return app.data.i18n[language];
 					}
@@ -592,17 +636,26 @@ define(function() {
 					_.partial(_.map, _, monster.normalizeUrlPathEnding),
 					_.partial(_.find, _, _.isString)
 				),
+				removeTrailingSlash = function(url) {
+					// Remove trailing '/'
+					return _.endsWith(url, '/') ? url.slice(0, -1) : url;
+				},
 				metadata = monster.util.getAppStoreMetadata(name),
-				externalUrl = getValidUrl([
+				externalUrl = _.flow(
+					getValidUrl,
+					removeTrailingSlash
+				)([
 					_.get(metadata, 'source_url'),
 					_.get(options, 'sourceUrl')
 				]),
 				hasExternalUrlConfigured = !_.isUndefined(externalUrl),
 				pathConfig = hasExternalUrlConfigured ? {
 					directory: externalUrl,
-					module: 'app-' + name
+					moduleRoot: 'apps/' + name,
+					module: 'apps/' + name + '/app'
 				} : {
 					directory: 'apps/' + name,
+					moduleRoot: 'apps/' + name,
 					module: 'apps/' + name + '/app'
 				},
 				apiUrl = getValidUrl([
@@ -655,8 +708,8 @@ define(function() {
 
 					callback(null, app);
 				},
-				requireSubModule = function(app, subModule, callback) {
-					var pathSubModule = app.appPath + '/submodules/',
+				requireSubModule = _.partial(function(appRoot, app, subModule, callback) {
+					var pathSubModule = appRoot + '/submodules/',
 						path = pathSubModule + subModule + '/' + subModule;
 
 					require([path], function(module) {
@@ -673,7 +726,7 @@ define(function() {
 
 						callback(null);
 					}, callback);
-				},
+				}, pathConfig.moduleRoot),
 				loadSubModules = function loadSubModules(app, callback) {
 					monster.parallel(_
 						.chain(app)
@@ -729,7 +782,7 @@ define(function() {
 
 			if (hasExternalUrlConfigured) {
 				require.config(
-					_.set({}, ['paths', pathConfig.module], pathConfig.directory + '/app')
+					_.set({}, ['paths', pathConfig.moduleRoot], pathConfig.directory)
 				);
 			}
 
@@ -803,8 +856,6 @@ define(function() {
 						complete: _.partial(monster.pub, 'monster.requestEnd'),
 						success: _.partial(callback, null),
 						error: function(data, status, error) {
-							console.log('_loadLocale error: ', status, error);
-
 							callback(true);
 						}
 					});

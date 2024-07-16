@@ -7,51 +7,43 @@ define(function(require) {
 
 	var app = {
 
-		name: 'appstore',
-
-		css: [ 'app' ],
-
 		i18n: {
 			'de-DE': { customCss: false },
 			'en-US': { customCss: false },
 			'fr-FR': { customCss: false },
 			'ru-RU': { customCss: false }
 		},
-
 		requests: {
-		},
-
-		subscribe: {
-
-		},
-
-		load: function(callback) {
-			var self = this;
-
-			self.initApp(function() {
-				callback && callback(self);
-			});
-		},
-
-		initApp: function(callback) {
-			var self = this;
-
-			monster.pub('auth.initApp', {
-				app: self,
-				callback: callback
-			});
+			'marketplace.get': {
+				url: 'apps_store/marketplace',
+				verb: 'GET'
+			},
+			'marketplace.action': {
+				apiRoot: monster.config.api.default,
+				url: 'apps_store/marketplace',
+				verb: 'PATCH'
+			}
 		},
 
 		render: function(container) {
 			var self = this,
-				template = $(self.getTemplate({
-					name: 'app'
-				})),
 				parent = container || $('#monster_content');
+
+			self.setStore({
+				shouldShowMarket: monster.util.isSuperDuper() && !monster.util.isMasquerading(),
+				marketConfig: null
+			});
+
+			const template = $(self.getTemplate({
+				name: 'app',
+				data: {
+					shouldShowMarket: self.getStore('shouldShowMarket')
+				}
+			}));
 
 			if (!monster.config.whitelabel.hasOwnProperty('hideAppStore') || monster.config.whitelabel.hideAppStore === false) {
 				self.loadData(function(err, appstoreData) {
-					self.renderApps(template, appstoreData);
+					self.renderAppList(template, appstoreData);
 					self.bindEvents(template, appstoreData);
 				});
 
@@ -68,9 +60,8 @@ define(function(require) {
 
 		bindEvents: function(parent, appstoreData) {
 			var self = this,
-				searchInput = parent.find('.search-bar input.search-query');
-
-			setTimeout(function() { searchInput.focus(); });
+				shouldShowMarket = self.getStore('shouldShowMarket'),
+				marketplaceActive = false;
 
 			parent.find('.app-filter').on('click', function(e) {
 				var $this = $(this),
@@ -79,30 +70,44 @@ define(function(require) {
 				parent.find('.app-filter').removeClass('active');
 				$this.addClass('active');
 
+				if (marketplaceActive) {
+					parent.find('.left-menu .marketplace .launch-market').removeClass('active');
+					self.renderAppList(parent, appstoreData);
+					marketplaceActive = false;
+				}
+
 				parent.find('.app-list').isotope({
 					filter: '.app-element' + (filter ? '.' + filter : '')
 				});
 
-				searchInput.val('').focus();
+				parent.find('.search-bar input.search-query').val('').focus();
 			});
 
-			parent.find('.app-list-container').on('click', '.app-element', function(e) {
-				self.showAppPopup($(this).data('id'), appstoreData);
-			});
+			if (shouldShowMarket) {
+				parent.find('.left-menu .marketplace').on('click', '.launch-market', function(e) {
+					var $this = $(this);
+					self.loadMarketConfig(function() {
+						parent.find('.app-filter').removeClass('active');
+						$this.addClass('active');
 
-			searchInput.on('keyup', function(e) {
-				var value = $(this).val(),
-					selectedFilter = parent.find('.app-filter.active').data('filter'),
-					filter = '.app-element' + (selectedFilter ? '.' + selectedFilter : '');
-
-				if (value) {
-					filter += '[data-name*="' + value + '"]';
-				}
-
-				parent.find('.app-list').isotope({
-					filter: '.app-element' + filter
+						marketplaceActive = true;
+						self.showMarketplaceConnector(parent);
+					},
+					function(error, data, handler) {
+						/* checking for the error returned when cluster is unlinked from portal
+						an then log into monster ui*/
+						const isAppexPasstrough = error.responseText.includes('appex_passthrough_error');
+						const isUnauthorizedError = error.responseText.includes('Unauthorized');
+						if (isAppexPasstrough && isUnauthorizedError) {
+							/* if this is not true the left items won't do anything*/
+							marketplaceActive = true;
+							self.renderMarketUnLinkedCluster(parent);
+						} else {
+							handler(data);
+						}
+					});
 				});
-			});
+			}
 		},
 
 		loadData: function(callback) {
@@ -134,7 +139,7 @@ define(function(require) {
 			}, callback);
 		},
 
-		renderApps: function(parent, appstoreData) {
+		renderAppList: function(parent, appstoreData) {
 			var self = this,
 				appList = appstoreData.apps,
 				isAppInstalled = function(app) {
@@ -152,10 +157,8 @@ define(function(require) {
 					}
 				}));
 
-			parent
-				.find('.app-list-container')
-					.empty()
-					.append(template);
+			monster.ui.insertTemplate(parent.find('.right-container'), template);
+			self.bindAppListEvents(parent, template, appstoreData);
 
 			parent
 				.find('.app-list')
@@ -167,6 +170,31 @@ define(function(require) {
 						},
 						sortBy: 'name'
 					});
+		},
+
+		bindAppListEvents: function(parent, appListTemplate, appstoreData) {
+			var self = this,
+				searchInput = appListTemplate.find('.search-bar input.search-query');
+
+			appListTemplate.find('.app-list').on('click', '.app-element', function(e) {
+				self.showAppPopup($(this).data('id'), appstoreData);
+			});
+
+			searchInput.val('').focus();
+
+			searchInput.on('keyup', function(e) {
+				var value = $(this).val(),
+					selectedFilter = parent.find('.app-filter.active').data('filter'),
+					filter = '.app-element' + (selectedFilter ? '.' + selectedFilter : '');
+
+				if (value) {
+					filter += '[data-name*="' + value + '"]';
+				}
+
+				appListTemplate.find('.app-list').isotope({
+					filter: '.app-element' + filter
+				});
+			});
 		},
 
 		showAppPopup: function(appId, appstoreData) {
@@ -421,8 +449,346 @@ define(function(require) {
 					$('#appstore_container .app-filter.active').click();
 				});
 			});
-		}
+		},
 
+		showMarketplaceConnector: function(parent) {
+			const self = this;
+			const marketConfig = self.getStore('marketConfig');
+			const enabled = marketConfig.enabled;
+			const is_linked = marketConfig.is_linked;
+
+			if (enabled && is_linked) {
+				self.renderMarketSettings(parent);
+			} else if (enabled) {
+				self.renderMarketLink(parent);
+			} else {
+				self.renderMarketWelcome(parent);
+			}
+		},
+
+		renderMarketLink: function(parent) {
+			const self = this;
+			const marketConfig = self.getStore('marketConfig');
+			const template = $(self.getTemplate({
+				name: 'marketClusterLink',
+				data: {
+					config: marketConfig
+				}
+			}));
+
+			monster.ui.insertTemplate(parent.find('.right-container'), template);
+			self.bindMarketLinkEvents(parent, template);
+		},
+
+		bindMarketLinkEvents: function(parent, template) {
+			const self = this;
+			const linkForm = template.find('#cluster_link_form');
+
+			monster.ui.validate(linkForm);
+
+			parent.find('.market-link #save').on('click', function(e) {
+				e.preventDefault();
+
+				const saveThis = $(this);
+
+				saveThis.prop({ disabled: true });
+
+				if (monster.ui.valid(linkForm)) {
+					const formData = monster.ui.getFormData('cluster_link_form');
+
+					self.maybeSetApiUrl();
+					self.updateMarketConnector(
+						{
+							action: 'link',
+							access_code: formData.access_code,
+							settings: { name: formData.cluster_name }
+						},
+						function() {
+							self.showMarketplaceConnector(
+								parent
+							);
+						},
+						function() {
+							saveThis.prop({ 'disabled': false });
+						});
+				} else {
+					saveThis.prop({ disabled: false });
+				}
+			});
+
+			parent.find('.market-link #cancel_disable').on('click', function(e) {
+				e.preventDefault();
+
+				self.updateMarketConnector(
+					{ action: 'disable' },
+					function() {
+						self.showMarketplaceConnector(
+							parent
+						);
+					});
+			});
+		},
+
+		renderMarketUnLinkedCluster: function(parent) {
+			const self = this;
+			const template = $(self.getTemplate({
+				name: 'marketUnlinkedCluster'
+			}));
+
+			monster.ui.insertTemplate(parent.find('.right-container'), template);
+			self.bindUnlinckClusterEvents(parent);
+		},
+
+		bindUnlinckClusterEvents: function(parent) {
+			var self = this;
+			$('#complete-unlink').on('click', function() {
+				self.updateMarketConnector({ action: 'unlink' }, function() {
+					self.renderMarketWelcome(parent);
+				});
+			});
+		},
+
+		renderMarketSettings: function(parent) {
+			const self = this;
+			const marketConfig = self.getStore('marketConfig');
+			const template = $(self.getTemplate({
+				name: 'marketConnectorSettings',
+				data: {
+					config: marketConfig
+				}
+			}));
+
+			monster.ui.insertTemplate(parent.find('.right-container'), template);
+			self.bindMarketSettingsEvents(parent, template);
+		},
+
+		bindMarketSettingsEvents: function(parent, template) {
+			const self = this;
+			const configForm = template.find('#configuration_form');
+
+			monster.ui.validate(configForm);
+
+			const marketAction = function(payload, varName, formThis) {
+				self.updateMarketConnector(
+					payload,
+					function() {
+						monster.ui.toast({
+							type: 'success',
+							message: self.getTemplate({
+								name: '!' + self.i18n.active().marketplace.edition.successUpdate,
+								data: {
+									variable: varName
+								}
+							})
+						});
+						self.showMarketplaceConnector(
+							parent
+						);
+					},
+					function() {
+						formThis.prop({ 'disabled': false });
+					});
+			};
+
+			$('.market-settings #save').on('click', function(e) {
+				e.preventDefault();
+				const saveThis = $(this);
+				saveThis.prop({ disabled: true });
+
+				if (monster.ui.valid(configForm)) {
+					const formData = monster.ui.getFormData('configuration_form');
+					marketAction(
+						{
+							action: 'update',
+							settings:
+								{
+									name: formData.cluster_name,
+									api_url: formData.api_url,
+									is_aio_cluster: formData.is_aio_cluster
+								}
+						},
+						'api_url',
+						saveThis);
+				} else {
+					saveThis.prop({ disabled: false });
+				}
+			});
+
+			$('.market-settings #disable').on('click', function(e) {
+				e.preventDefault();
+				const saveThis = $(this);
+
+				self.confirmDisableDialog(function() {
+					saveThis.prop({ disabled: true });
+					marketAction({ action: 'disable' }, 'enabled', saveThis);
+				});
+			});
+
+			$('.market-settings #disconnect').on('click', function(e) {
+				e.preventDefault();
+				const saveThis = $(this);
+
+				self.confirmDisconnectDialog(function() {
+					saveThis.prop({ disabled: true });
+					marketAction({ action: 'unlink' }, 'unlink', saveThis);
+				});
+			});
+		},
+
+		confirmDisableDialog: function(callbackSuccess) {
+			const self = this;
+			const content = self.i18n.active().marketplace.dangerDisableDialog.content;
+			monster.ui.confirm(
+				content,
+				function() {
+					callbackSuccess && callbackSuccess();
+				}
+			);
+		},
+
+		confirmDisconnectDialog: function(callbackSuccess) {
+			const self = this;
+			const marketConfig = self.getStore('marketConfig');
+			const actionKey = self.i18n.active().marketplace.dangerDisconnectDialog.actionKey;
+			const confirmPopup = monster.ui.confirm(
+				$(self.getTemplate({
+					name: 'dangerConfirmDialog',
+					data: {
+						clusterId: marketConfig.cluster_id
+					}
+				})),
+				function() {
+					callbackSuccess && callbackSuccess();
+				},
+				null,
+				{
+					title: self.i18n.active().marketplace.dangerDisconnectDialog.title,
+					confirmButtonText: self.i18n.active().marketplace.dangerDisconnectDialog.actionBtn,
+					htmlContent: true
+				}
+			);
+
+			confirmPopup.find('#confirm_button').prop('disabled', true);
+
+			confirmPopup.find('#action_input').on('keyup', function() {
+				if ($(this).val() === actionKey) {
+					confirmPopup.find('#confirm_button').prop('disabled', false);
+				} else {
+					confirmPopup.find('#confirm_button').prop('disabled', true);
+				}
+			});
+		},
+
+		renderMarketWelcome: function(parent) {
+			const self = this;
+			const template = $(self.getTemplate({
+				name: 'marketWelcome'
+			}));
+
+			monster.ui.insertTemplate(parent.find('.right-container'), template);
+			self.bindMarketWelcomeEvents(parent, template);
+		},
+
+		bindMarketWelcomeEvents: function(parent) {
+			const self = this;
+
+			parent.find('#market_enable_connector_btn').on('click', function(e) {
+				e.preventDefault();
+
+				self.maybeSetApiUrl();
+				self.updateMarketConnector(
+					{ action: 'enable' },
+					function() {
+						self.showMarketplaceConnector(
+							parent
+						);
+					});
+			});
+		},
+
+		loadMarketConfig: function(onSuccess, onError) {
+			const self = this;
+
+			// use this fake to test ui without calling API
+			// let fake = {
+			// 	cluster_id: 'lolololololol',
+			//	name: "cluster",
+			// 	enabled: true,
+			// 	app_exchange_url: 'http://localhost:8080/',
+			// 	marketplace_url: 'http://localhost:3030',
+			//	is_aio_cluster: true,
+			// 	is_linked: true,
+			//	kazoo_version: "5.1.0",
+			// 	_read_only: {}
+			// };
+			// self.setStore('marketConfig', fake);
+			// onSuccess()
+			monster.request({
+				resource: 'marketplace.get',
+				generateError: false,
+				success: function(response) {
+					if (response && response.data) {
+						self.setStore('marketConfig', response.data);
+						onSuccess && onSuccess();
+					} else {
+						onError();
+					}
+				},
+				error: function(err, data, handler) {
+					onError && onError(err, data, handler);
+				}
+			});
+		},
+		updateMarketConnector: function(payload, onSuccess, onError) {
+			const self = this;
+
+			// use this to test ui without calling API
+			// const marketConfig = self.getStore('marketConfig') || {};
+			// if (payload.action === 'enable') {
+			// 	marketConfig.enabled = true;
+			// } else if (payload.action === 'disable') {
+			// 	marketConfig.enabled = false;
+			// } else if (payload.action === 'link') {
+			// 	marketConfig.is_linked = true;
+			// } else if (payload.action === 'unlink') {
+			// 	marketConfig.is_linked = false;
+			// } else if (payload.action === 'api_url') {
+			// 	marketConfig.api_url = payload.api_url;
+			// }
+			// self.setStore('marketConfig', marketConfig);
+			// onSuccess && onSuccess();
+
+			monster.request({
+				resource: 'marketplace.action',
+				data: {
+					data: payload
+				},
+				success: function(response) {
+					if (response && response.data) {
+						self.setStore('marketConfig', response.data);
+						onSuccess && onSuccess();
+					} else {
+						onError();
+					}
+				},
+				error: function() {
+					onError && onError();
+				}
+			});
+		},
+		maybeSetApiUrl: function() {
+			const self = this;
+			const marketConfig = self.getStore('marketConfig') || {};
+
+			if (!marketConfig.api_url && monster.config.api.default) {
+				self.updateMarketConnector({
+					action: 'update',
+					settings: {
+						api_url: monster.config.api.default
+					}
+				});
+			}
+		}
 	};
 
 	return app;
