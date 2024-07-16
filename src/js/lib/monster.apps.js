@@ -121,7 +121,7 @@ define(function() {
 			};
 
 			app.callApi = function(params) {
-				params.apiUrl = 'https://portal.simplevoip.us:8443/v2/';
+				// params.apiUrl = 'https://portal.simplevoip.us:8443/v2/';
 				var apiSplit = params.resource.split('.'),
 					module = apiSplit[0],
 					method = apiSplit[1],
