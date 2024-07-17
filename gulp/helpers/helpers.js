@@ -1,4 +1,6 @@
-import { join } from 'upath';
+// import { join } from 'upath';
+import pkg from 'upath';
+const { join } = pkg;
 import fs from 'fs';
 import parser from 'yargs-parser';
 import { src } from '../paths.js';

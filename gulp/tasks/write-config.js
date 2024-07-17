@@ -1,4 +1,6 @@
-import { join } from 'upath';
+// import { join } from 'upath';
+import pkg from 'upath';
+const { join } = pkg;
 import gulp from 'gulp';
 import fs from 'fs';
 import { app, tmp } from '../paths.js';

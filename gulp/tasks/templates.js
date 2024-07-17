@@ -1,4 +1,6 @@
-import { join, normalize, sep } from 'upath';
+// import { join, normalize, sep } from 'upath';
+import pkg from 'upath';
+const { join, normalize, sep } = pkg;
 import gulp from 'gulp';
 import handlebars from 'gulp-handlebars';
 import wrap from 'gulp-wrap';

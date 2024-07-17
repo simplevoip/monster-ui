@@ -1,6 +1,8 @@
 import gulp from 'gulp';
 import { create } from 'browser-sync';
-import { join, normalize, relative, resolve } from 'upath';
+// import { join, normalize, relative, resolve } from 'upath';
+import pkg from 'upath';
+const { join, normalize, relative, resolve } = pkg;
 import del from 'del';
 import cache from 'gulp-cached';
 import { src, dist } from '../paths.js';

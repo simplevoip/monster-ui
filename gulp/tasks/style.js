@@ -1,4 +1,6 @@
-import { join } from 'upath';
+// import { join } from 'upath';
+import pkg from 'upath';
+const { join } = pkg;
 import gulp from 'gulp';
 import concatCss from '@fomantic/gulp-concat-css';
 import cleanCss from 'gulp-clean-css';

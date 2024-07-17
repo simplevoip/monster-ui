@@ -14,15 +14,27 @@
  */
 define({
 	whitelabel: {
-		companyName: '2600Hz',
+		companyName: 'SimpleVoIP',
 		applicationTitle: 'Monster UI',
-		callReportEmail: 'support@2600hz.com',
+		callReportEmail: 'support@simplevoip.us',
+		disableNumbersFeatures: false,
+		hide_powered: true,
+		hideAppStore: false,
+		hideBuyNumbers: true,
+		hideNewAccountCreation: true,
+		hide_port: true,
+		brandColor: '#000000',
+		logoPath: 'https://portal.simplevoip.us:8443/v2/whitelabel/portal.simplevoip.us/logo',
 		nav: {
-			help: 'http://wiki.2600hz.com'
+			help: 'http://simplevoip.editme.com/'
 		},
 		port: {
 			loa: 'http://ui.zswitch.net/Editable.LOA.Form.pdf',
 			resporg: 'http://ui.zswitch.net/Editable.Resporg.Form.pdf'
-		}
+		},
+		e911_readonly: true
+	},
+	api: {
+		'default': 'https://sandbox.2600hz.com:8443/v2/'
 	}
 });

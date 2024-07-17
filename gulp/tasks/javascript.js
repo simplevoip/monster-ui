@@ -1,5 +1,7 @@
 import { env, mode } from '../helpers/helpers.js';
-import { join } from 'upath';
+// import { join } from 'upath';
+import pkg from 'upath';
+const { join } = pkg;
 import gulp from 'gulp';
 import uglify from 'gulp-uglify';
 import eslint from 'gulp-eslint';
