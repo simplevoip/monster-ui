@@ -4,11 +4,6 @@ define(function(require) {
 		monster = require('monster');
 
 	var app = {
-
-		name: 'auth',
-
-		css: [ 'app' ],
-
 		i18n: {
 			'de-DE': { customCss: false },
 			'en-US': { customCss: false },
@@ -27,6 +22,15 @@ define(function(require) {
 			kazooConnectionName: 'kazooAPI',
 			mainContainer: undefined,
 			isAuthentified: false,
+
+			/**
+			 * Holds map of feature sets merged from config and entitlements.
+			 * @type {Object}
+			 *
+			 * Set on successful authentication.
+			 *
+			 */
+			featureSet: {},
 
 			/**
 			 * Holds map of capababilities returned on authentication.
@@ -127,7 +131,14 @@ define(function(require) {
 					window.location = sso.login;
 				}
 			} else if (urlParams.hasOwnProperty('state') && urlParams.hasOwnProperty('code')) {
-			// OAuth redirect
+				const duoAuthState = localStorage.getItem('duoAuthState')
+
+				if (duoAuthState === urlParams.state) {
+					self.checkDuoAuth(urlParams.code);
+					return
+				}
+
+				// OAuth redirect
 				self.getNewOAuthTokenFromURLParams(urlParams, function(authData) {
 					// Once we set our token we refresh the page to get rid of new URL params from auth callback
 					self.buildCookiesFromSSOResponse(authData);
@@ -196,7 +207,11 @@ define(function(require) {
 
 			self.getAuth(authToken,
 				function(authData) {
-					callback && callback(authData);
+					var tokenData = _.merge({}, authData, {
+						auth_token: authToken
+					});
+
+					callback && callback(tokenData);
 				},
 				function(error) {
 					errorCallback && errorCallback(error);
@@ -280,7 +295,7 @@ define(function(require) {
 
 			self.appFlags.isAuthentified = true;
 
-			_.set(self.appFlags, 'capabilities', _.get(data.data, 'capabilities', {}));
+			self.appFlags.featureSet = monster.getFeatureSet(data.auth_token);
 
 			self.appFlags.connections[self.appFlags.kazooConnectionName] = {
 				accountId: data.data.account_id,
@@ -302,13 +317,38 @@ define(function(require) {
 
 			monster.cookies.set('monster-auth', cookieAuth);
 
-			// In the case of the retry login, we don't want to re-update the UI, we just want to re-update the flags set above, that's why we added this parameter.
-			if (updateLayout) {
-				$('.core-footer').append(self.appFlags.mainContainer.find('.powered-by-block .powered-by'));
-				self.appFlags.mainContainer.empty();
+			monster.waterfall([
+				function getCidCapabilityStatus(next) {
+					self.callApi({
+						resource: 'externalNumbers.list',
+						data: {
+							accountId: data.data.account_id,
+							generateError: false
+						},
+						success: _.partial(_.ary(next, 2), null, true),
+						error: _.partial(_.ary(next, 2), null, false)
+					});
+				}
+			], function(err, cidCapabilityStatus) {
+				_.set(self.appFlags, 'capabilities', _.merge({},
+					_.get(data.data, 'capabilities', {}),
+					{
+						caller_id: {
+							external_numbers: {
+								available: cidCapabilityStatus
+							}
+						}
+					}
+				));
 
-				self.afterLoggedIn(data.data);
-			}
+				// In the case of the retry login, we don't want to re-update the UI, we just want to re-update the flags set above, that's why we added this parameter.
+				if (updateLayout) {
+					$('.core-footer').append(self.appFlags.mainContainer.find('.powered-by-block .powered-by'));
+					self.appFlags.mainContainer.empty();
+
+					self.afterLoggedIn(data.data);
+				}
+			});
 		},
 
 		//Events handler
@@ -337,7 +377,6 @@ define(function(require) {
 					self.getAccount(self.accountId, function(data) {
 						// The Kazoo Version is returned by all APIs. Since it won't change, we'll store it in this flag to display it in other places without querying APIs.
 						monster.config.developerFlags.kazooVersion = data.version;
-
 						callback(null, data.data);
 					},
 					function(data) {
@@ -990,25 +1029,7 @@ define(function(require) {
 								content.find('.reset-notification').addClass('animated fadeIn').removeClass('hidden');
 							},
 							error: function(data, error, globalHandler) {
-								if (error.status === 400) {
-									_.keys(data.data).forEach(function(val) {
-										if (self.i18n.active().recoverPassword.toastr.error.reset.hasOwnProperty(val)) {
-											monster.ui.toast({
-												type: 'error',
-												message: self.i18n.active().recoverPassword.toastr.error.reset[val]
-											});
-										} else {
-											if (data.data[val].hasOwnProperty('not_found')) {
-												monster.ui.toast({
-													type: 'error',
-													message: data.data[val].not_found
-												});
-											}
-										}
-									});
-								} else {
-									globalHandler(data);
-								}
+								globalHandler(data);
 							}
 						});
 					} else {
@@ -1216,6 +1237,21 @@ define(function(require) {
 			$template.find('.cancel-link').on('click', closePopup);
 		},
 
+		checkDuoAuth: function(duoCode) {
+			var self = this,
+				loginData = JSON.parse(localStorage.getItem('prevAuth')),
+				duoData = JSON.parse(localStorage.getItem('duoAuth'));
+
+			loginData.multi_factor_response = {
+				code: duoCode,
+				redirect_uri: window.location.origin
+			};
+
+			self.putAuth(loginData, function(data) {
+				// Do Auth success
+			});
+		},
+
 		checkRecoveryId: function(recoveryId, callback) {
 			var self = this;
 
@@ -1377,43 +1413,39 @@ define(function(require) {
 			});
 		},
 
-		handleMultiFactor: function(data, loginData, success, error) {
-			var self = this;
+		handleMultiFactor: function(data, loginData, _success, error) {
+			var self = this,
+				isDuoUniversal = data.multi_factor_request.provider_name === 'duo_universal',
+				isDuoLegacy = data.multi_factor_request.provider_name === 'duo';
 
-			if (data.multi_factor_request.provider_name === 'duo') {
-				self.showDuoDialog(data, loginData, success, error);
+			if (isDuoUniversal) {
+				self.doDuoUniversalRedirect(data, loginData);
+			} else if (isDuoLegacy) {
+				self.showDuoDialog();
 			} else {
 				error && error();
 			}
 		},
 
-		showDuoDialog: function(data, loginData, success, error) {
-			var self = this,
-				wasSuccessful = false;
+		doDuoUniversalRedirect: function(data, loginData) {
+			localStorage.setItem('prevAuth', JSON.stringify(loginData))
+			localStorage.setItem('duoAuthState', _.get(data, 'multi_factor_request.duo_state', ''))
 
-			require(['duo'], function() {
-				var template = self.getTemplate({ name: 'duo-dialog' }),
-					dialog = monster.ui.dialog(template, {
-						title: self.i18n.active().duoDialog.title,
-						onClose: function() {
-							if (!wasSuccessful) {
-								error && error();
-							}
-						}
-					});
+			window.location.href = _.get(data, 'multi_factor_request.duo_redirect', '')
+		},
 
-				Duo.init({
-					iframe: dialog.find('iframe')[0],
-					sig_request: data.multi_factor_request.settings.duo_sig_request,
-					host: data.multi_factor_request.settings.duo_api_hostname,
-					submit_callback: function(form) {
-						wasSuccessful = true;
-						loginData.multi_factor_response = $(form).find('[name="sig_response"]').attr('value');
-						dialog.dialog('close').remove();
-						success && success(loginData);
-					}
-				});
-			});
+		showDuoDialog: function() {
+			var self = this;
+
+			monster.ui.alert(
+				'warning',
+				self.i18n.active().duoDialog.eol.description,
+				null,
+				{
+					title: self.i18n.active().duoDialog.eol.title,
+					isPersistent: true
+				}
+			);
 		},
 
 		/**

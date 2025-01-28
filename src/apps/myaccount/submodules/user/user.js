@@ -69,7 +69,7 @@ define(function(require) {
 		userBindingEvents: function(template, data) {
 			var self = this;
 
-			timezone.populateDropdown(template.find('#user_timezone'), data.user.timezone || 'inherit', {inherit: self.i18n.active().defaultTimezone});
+			timezone.populateDropdown(template.find('#user_timezone'), data.user.timezone || 'inherit', { inherit: self.i18n.active().defaultTimezone });
 			monster.ui.chosen(template.find('#user_timezone'));
 			monster.ui.showPasswordStrength(template.find('#password'));
 
@@ -83,7 +83,25 @@ define(function(require) {
 
 			monster.pub('myaccount.events', {
 				template: template,
-				data: data
+				data: data,
+				validateCallback: function(callback) {
+					var formPassword = template.find('#form_password');
+
+					monster.ui.validate(formPassword, {
+						rules: {
+							'password': {
+								minlength: 6
+							},
+							'confirm_password': {
+								equalTo: 'input[name="password"]'
+							}
+						}
+					});
+
+					if (monster.ui.valid(formPassword)) {
+						callback && callback(null);
+					}
+				}
 			});
 		}
 	};

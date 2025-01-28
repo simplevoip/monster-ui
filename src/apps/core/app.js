@@ -3,21 +3,11 @@ define(function(require) {
 		_ = require('lodash'),
 		monster = require('monster');
 
-	var appSubmodules = [
-		'alerts',
-		'socket'
-	];
-
-	require(_.map(appSubmodules, function(name) {
-		return './submodules/' + name + '/' + name;
-	}));
-
 	var app = {
-		name: 'core',
-
-		subModules: appSubmodules,
-
-		css: [ 'app' ],
+		subModules: [
+			'alerts',
+			'socket'
+		],
 
 		i18n: {
 			'de-DE': { customCss: false },
@@ -25,8 +15,6 @@ define(function(require) {
 			'fr-FR': { customCss: false },
 			'ru-RU': { customCss: false }
 		},
-
-		requests: {},
 
 		subscribe: {
 			'core.isActiveAppPlugin': 'isActiveAppPlugin',
@@ -88,7 +76,8 @@ define(function(require) {
 				mainTemplate = $(self.getTemplate({
 					name: 'app',
 					data: dataTemplate
-				}));
+				})),
+				crossSiteMessaging = monster.config.crossSiteMessaging;
 
 			document.title = monster.config.whitelabel.applicationTitle;
 
@@ -101,11 +90,37 @@ define(function(require) {
 			self.displayFavicon();
 			self.loadSVG();
 
+			if (!_.isUndefined(crossSiteMessaging)) {
+				self.bindCrossSiteMessagingHandler(crossSiteMessaging);
+			}
+
 			container.append(mainTemplate);
 
 			monster.waterfall([
 				_.bind(self.loadIncludes, self)
 			], _.bind(self.loadAuth, self));
+		},
+
+		bindCrossSiteMessagingHandler: function(crossSiteMessaging) {
+			var origin = crossSiteMessaging.origin,
+				topics = crossSiteMessaging.topics;
+
+			var handleCrossSiteMessages = function handleCrossSiteMessages(event) {
+				var activeApp = monster.apps.getActiveApp(),
+					eventData = event.data;
+
+				if (!_.isString(eventData) || activeApp !== eventData.split('.')[0]) {
+					return;
+				}
+
+				if (event.origin !== origin || !topics.includes(eventData) || !monster.util.isAuthorizedTopicForCrossSiteMessaging(eventData)) {
+					return;
+				}
+
+				monster.pub('core.crossSiteMessage.' + activeApp, eventData);
+			};
+
+			window.addEventListener('message', handleCrossSiteMessages);
 		},
 
 		loadSVG: function() {
@@ -504,9 +519,7 @@ define(function(require) {
 						generateError: false
 					},
 					success: function(data, status) {
-						account = data.data;
-
-						afterGetData(account);
+						afterGetData(data.data);
 					},
 					error: function() {
 						// If we couldn't get the account, the id must have been wrong, we just continue with the original callback

@@ -4,20 +4,13 @@ define(function(require) {
 		monster = require('monster');
 
 	var app = {
-		name: 'apploader',
-
 		isMasqueradable: false,
-
-		css: [ 'app' ],
 
 		i18n: {
 			'de-DE': { customCss: false },
 			'en-US': { customCss: false },
 			'fr-FR': { customCss: false },
 			'ru-RU': { customCss: false }
-		},
-
-		requests: {
 		},
 
 		appFlags: {
@@ -33,25 +26,6 @@ define(function(require) {
 			'apploader.toggle': '_toggle',
 			'apploader.current': '_currentApp',
 			'apploader.getAppList': 'getAppList'
-		},
-
-		load: function(callback) {
-			var self = this;
-
-			self.initApp(function() {
-				callback && callback(self);
-			});
-		},
-
-		initApp: function(callback) {
-			var self = this;
-
-			self.isMasqueradable = false;
-
-			monster.pub('auth.initApp', {
-				app: self,
-				callback: callback
-			});
 		},
 
 		_render: function() {
@@ -106,7 +80,7 @@ define(function(require) {
 
 			monster.series([
 				function shouldRender(next) {
-					monster.pub('myaccount.hasToShowWalkthrough', next);
+					monster.pub('myaccount.hasToShowWalkthrough', _.partial(next, null));
 				}
 			], function(err) {
 				if (err) {

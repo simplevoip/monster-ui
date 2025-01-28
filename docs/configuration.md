@@ -41,7 +41,10 @@ Key | Description | Type | Default | Required
 `support_email` | Allow to define support email | Type | Default | Required
 `resellerId` | The resellerId key is the accountId of your master account, and is needed for some reseller features. For example it won't prompt for a credit card the sub-accounts that have a different resellerId than this resellerId | `String` | | `false`
 `whitelabel` | Contains all the flags that are whitelabel-able via the Branding app. Setting them in the config file will set the defaults if you don't use any whitelabel. If the domain used is defined in the whitelabel database, we'll override the following settings by what is set in the whitelabel document. | `Object`([#whitelabel](#whitelabel)) | | `true`
-
+`allowedExtraDeviceTypes` | Contains types of additional devices corresponding to integrations. | `Array` | | `false`
+`allowCrossSiteUsage` | Whether Monster UI supports being embedded into a third-party context (e.g. iframe with different domain). | `Boolean` | `false` | `false`
+`bypassAppStorePermissions` | Whether app store access restrictions should be bypassed when loading an app. When set to `true`, end-users are allowed to access any app installed on the cluster where Monster UI is running.  | `Boolean` | `false` | `false`
+`crossSiteMessaging` | Configures whether the application permits messages from external domains and specifies acceptable message topics. | `Object`([#crossSiteMessaging](#crossSiteMessaging)) | | `false`
 
 ### `api`
 
@@ -121,6 +124,8 @@ Key | Description | Type | Default | Required
 `showPAssertedIdentity` | Whether or not to render the P-Asserted-Identity section under Callflows app > Account Settings > Caller-ID. | `Boolean` | `false` | `false`
 `social` | List of social network to expose on the login page. | `Array` | | `false`
 `useDropdownApploader` | If set to true, the apploader will render as a dropdown list instead of a page on top of the window. False by default. | `Boolean` | `false` | `false`
+`disableFirstUseWalkthrough` | If set to true, the new user walkthrough will not be displayed. False by default. | `Boolean` | `false` | `false`
+`invoiceRangeConfig` | The range of months one can navigate back to for the invoices in the Invoice Generator. Its default value is 6 months from the current month, but it is not required to have a value assigned to it | `Number` | `6` | `false`
 
 #### `acceptCharges`
 
@@ -173,6 +178,13 @@ Key | Description | Type | Default | Required
 `brands.[]` | Each object key correspont to the device brand name (`yealink`, `avaya`...). | `Object` | | `false`
 `brands.[].keyFunctions` | List key functions available per brand ([schema][combo-keys-schema]). | `Array` | | `false`
 `brands.[].lineKeys` | List of keys to be used as default line keys per brand. | `Array` | | `false`
+
+#### `crossSiteMessaging`
+
+Key | Description | Type | Default | Required
+--- | --- | :---: | :---: | :---:
+`origin` | The remote source that the framework would be configured to accept cross-site messages from. | `String` | | `false`
+`topics` | Specific messages accepted from the configured remote source. | `Array`  | | `false`
 
 [currency-codes]: http://www.currency-iso.org/en/home/tables/table-a1.html
 [country-codes]: https://www.iso.org/obp/ui/#search

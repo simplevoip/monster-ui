@@ -1,0 +1,115 @@
+<div class="market-beta-notice">
+	{{#monsterPanelText "Beta notice" "info" "fill-width"}}
+		{{ i18n.marketplace.betaNotice }}
+	{{/monsterPanelText}}
+</div>
+<div id="market-content">
+	<div class="market-settings">
+		<div class="header-form">
+			<div class="pull-right go-to-market">
+				<a href="{{ config.marketplace_url }}" class="monster-button-small" target="_blank">
+					<i class="fa fa-shopping-bag"></i> {{ i18n.marketplace.openToMarket }}
+				</a>
+			</div>
+			<div class="title">{{ i18n.marketplace.title }}</div>
+			<div class="subtitle">{{ i18n.marketplace.edition.subtitle }}</div>
+		</div>
+		<form class="form form-horizontal form-inline" id="configuration_form">
+			<div class="content">
+				<div class="clearfix">
+					<div class="content-block">
+						<div class="content-title">{{ i18n.marketplace.edition.settingsSection }}</div>
+						<div class="content-data">
+							<div class="help-block clearfix">
+								<i class="fa fa-question-circle"></i>
+								{{ i18n.marketplace.edition.helpMore }} <a href="{{ config.marketplace_url }}/docs" target="_blank">{{ i18n.marketplace.edition.helpMoreLink }} <i class="fa fa-external-link"></i></a>.
+							</div>
+							<div class="control-group">
+								<label class="control-label">{{ i18n.marketplace.edition.clusterId }}</label>
+								<div class="controls">
+									<div class="plain-text">{{ config.cluster_id }}</div>
+								</div>
+							</div>
+							<div class="control-group">
+								<label class="control-label">{{ i18n.marketplace.edition.clusterName }}</label>
+								<div class="controls">
+									<input type="text" name="cluster_name"  value="{{ config.name }}" placeholder="{{ i18n.marketplace.edition.emptyClusterName }}"/>
+									<div class="help-block">{{ i18n.marketplace.edition.helpClusterName }}</div>
+								</div>
+							</div>
+							<div class="control-group">
+								<label class="control-label">{{ i18n.marketplace.edition.apiUrl }}</label>
+								<div class="controls">
+									<input required="" type="text" name="api_url" value="{{ config.api_url }}">
+									<div class="help-block">{{ i18n.marketplace.edition.helpApiUrl }}</div>
+								</div>
+							</div>
+							<div class="control-group">
+								<label class="control-label">{{ i18n.marketplace.edition.kazooAllInOneLabel }}</label>
+								<div class="controls">
+								{{#monsterSwitch}}
+								<input type="checkbox" name="is_aio_cluster" id="all_in_one" {{#if config.is_aio_cluster}} checked="true" {{/if}}/>
+								{{/monsterSwitch}}
+								<div class="help-block">{{ i18n.marketplace.edition.kazooAllInOneHelpText }}</div>
+							</div>
+							</div>
+						</div>
+						<div class="control-group">
+							<label class="control-label">{{ i18n.marketplace.edition.metaKazooVersion }}</label>
+							<div class="controls">
+								{{#if config.kazoo_version}}
+								<div class="plain-text">{{ config.kazoo_version }}</div>
+								{{else}}
+								<div class="plain-text err-message">{{ i18n.marketplace.edition.emptyKazooVersion }}</div>
+								{{/if}}
+								<div class="help-block">{{ i18n.marketplace.edition.kazooVersionHelpText }}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="control-actions clearfix">
+					<button class="monster-button-success" id="save">{{ i18n.save }}</button>
+				</div>
+			</div>
+		</form>
+		<div class="danger-content">
+			<div class="content">
+				<div class="clearfix">
+					<div class="content-block">
+						<div class="content-title monster-red">{{ i18n.marketplace.edition.dangerSection }}</div>
+						<div class="content-data">
+							<div class="row-wrap bt-red">
+								<div class="row-fluid">
+									<div class="span8">
+										<div class="danger-title">{{ i18n.marketplace.edition.dangerDisable }}</div>
+										<div class="help-block">
+											<div>{{{ i18n.marketplace.edition.helpDangerDisable }}}</div>
+											<div class="muted">{{ i18n.marketplace.edition.helpWarnDangerDisable }}</div>
+										</div>
+									</div>
+									<div class="span4">
+										<button class="monster-button market-disable" id="disable"><i class="fa fa-toggle-off"></i>{{ i18n.marketplace.edition.dangerDisable }}</button>
+									</div>
+								</div>
+							</div>
+							<div class="row-wrap clearfix">
+								<div class="row-fluid">
+									<div class="span8">
+										<div class="danger-title">{{ i18n.marketplace.edition.dangerDisconnect }}</div>
+										<div class="help-block">
+											<div>{{ i18n.marketplace.edition.helpDangerDisconnect }}</div>
+											<div class="muted">{{ i18n.marketplace.edition.helpWarnDangerDisconnect }}</div>
+										</div>
+									</div>
+									<div class="span4">
+										<button class="monster-button market-disconnect" id="disconnect"><i class="fa fa-unlink"></i>{{ i18n.marketplace.edition.dangerDisconnect }}</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

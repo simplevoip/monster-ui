@@ -19,6 +19,9 @@ define(function(require) {
 		 * @param  {Boolean} [args.noBuy=false]
 		 * @param  {Boolean} [args.noExtension=false]
 		 * @param  {Boolean} [args.noSpare=false]
+		 * @param  {Boolean} [args.noCallerId=true]
+		 * @param  {Boolean} [args.noAssigned=true]
+		 * @param  {Boolean} [args.width=220px]
 		 * @param  {Object} [args.labels]
 		 */
 		numberSelectorRender: function(args) {
@@ -28,37 +31,125 @@ define(function(require) {
 				noBuy = _.isBoolean(args.noBuy) ? args.noBuy : false,
 				noExtension = _.isBoolean(args.noExtension) ? args.noExtension : false,
 				noSpare = _.isBoolean(args.noSpare) ? args.noSpare : false,
+				noAssigned = _.isBoolean(args.noAssigned) ? args.noAssigned : true,
+				noCallerIdFromArg = _.isBoolean(args.noCallerId) ? args.noCallerId : true,
+				noCallerId = noCallerIdFromArg || !monster.util.getCapability('caller_id.external_numbers').isEnabled,
 				container = args.container,
 				labels = $.extend({
 					empty: self.i18n.active().numberSelector.emptyValue,
 					remove: self.i18n.active().numberSelector.removeLink,
 					spare: self.i18n.active().numberSelector.spareLink,
+					external: self.i18n.active().numberSelector.externalLink,
+					assignedLink: self.i18n.active().numberSelector.assignedLink,
 					buy: self.i18n.active().numberSelector.buyLink,
 					extension: self.i18n.active().numberSelector.extensionLink,
 					hideNumber: false
 				}, args.labels),
-				layout = $(self.getTemplate({
-					name: 'layout',
-					data: {
-						labels: labels,
-						inputName: inputName,
-						number: number,
-						noSpare: noSpare,
-						noBuy: monster.config.whitelabel.hideBuyNumbers
-							? true
-							: noBuy,
-						noExtension: noExtension
-					},
-					submodule: 'numberSelector'
-				}));
+				initTemplate = function(numbers) {
+					var isSelectedValid = _
+							.chain(numbers)
+							.flatMap()
+							.includes(number)
+							.value(),
+						dataToTemplate = noCallerId ? {
+							labels: labels,
+							inputName: inputName,
+							number: number,
+							noSpare: noSpare,
+							noAssigned: noAssigned,
+							noCallerId: true,
+							noBuy: monster.config.whitelabel.hideBuyNumbers
+								? true
+								: noBuy,
+							noExtension: noExtension
+						} : {
+							labels: labels,
+							inputName: inputName,
+							number: isSelectedValid ? number : undefined,
+							noSpare: noSpare,
+							noAssigned: noAssigned || _.isEmpty(numbers.assignedNumbers),
+							noCallerId: _.isEmpty(numbers.external) || noCallerId,
+							noBuy: monster.config.whitelabel.hideBuyNumbers
+								? true
+								: noBuy,
+							noExtension: noExtension
+						},
+						$template = $(self.getTemplate({
+							name: 'layout',
+							data: dataToTemplate,
+							submodule: 'numberSelector'
+						}));
 
-			if (container) {
-				args.labels = labels;
-				self.numberSelectorBindEvents($.extend({ template: layout }, args));
-				container.append(layout);
-			} else {
-				throw new Error('A container must be provided.');
+					if (args.width) {
+						$template.find('.number-selector-displayed, .number-selector-content').css('width', args.width);
+					}
+
+					self.numberSelectorBindEvents($.extend({
+						numbers: numbers,
+						template: $template
+					}, args, {
+						labels: labels
+					}));
+
+					return $template;
+				};
+
+			monster.ui.insertTemplate(container, function(insertTemplateCallback) {
+				self.numberSelectorGetData(noCallerId, function(err, numbers) {
+					insertTemplateCallback(initTemplate(numbers));
+				});
+			}, {
+				loadingTemplate: 'spinner'
+			});
+		},
+
+		numberSelectorGetData: function(noCallerId, next) {
+			var self = this,
+				listExternalNumbers = function(next) {
+					if (!monster.util.getCapability('caller_id.external_numbers').isEnabled) {
+						return next(null, []);
+					}
+					self.callApi({
+						resource: 'externalNumbers.list',
+						data: {
+							accountId: self.accountId
+						},
+						success: _.flow(
+							_.partial(_.get, _, 'data'),
+							_.partial(_.filter, _, 'verified'),
+							_.partial(_.map, _, 'number'),
+							_.partial(next, null)
+						),
+						error: next
+					});
+				},
+				listAssignedNumbers = function(next) {
+					self.callApi({
+						resource: 'numbers.list',
+						data: {
+							accountId: self.accountId,
+							filters: {
+								paginate: false
+							}
+						},
+						success: _.flow(
+							_.partial(_.get, _, 'data.numbers'),
+							_.partial(_.pickBy, _, 'used_by'),
+							_.keys,
+							_.partial(next, null)
+						),
+						error: next
+					});
+				};
+
+			if (noCallerId) {
+				return next(null, []);
 			}
+
+			monster.parallel({
+				external: listExternalNumbers,
+				assignedNumbers: listAssignedNumbers
+			}, next);
 		},
 
 		numberSelectorBindEvents: function(args) {
@@ -129,6 +220,33 @@ define(function(require) {
 						}
 						break;
 					}
+					case 'external':
+						monster.pub('common.monsterListing.render', {
+							dataList: _
+								.chain(args.numbers.external)
+								.keyBy()
+								.mapValues(function() {
+									return {};
+								})
+								.value(),
+							dataType: 'numbers',
+							singleSelect: true,
+							okCallback: addNumberCallback
+						});
+						break;
+					case 'assigned':
+						monster.pub('common.monsterListing.render', {
+							dataList: _.chain(args.numbers.assignedNumbers)
+								.keyBy()
+								.mapValues(function() {
+									return {};
+								})
+								.value(),
+							dataType: 'numbers',
+							singleSelect: true,
+							okCallback: addNumberCallback
+						});
+						break;
 					case 'extension': {
 						monster.pub('common.extensionTools.select', {
 							callback: standardCallback

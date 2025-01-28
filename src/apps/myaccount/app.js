@@ -3,27 +3,19 @@ define(function(require) {
 		_ = require('lodash'),
 		monster = require('monster');
 
-	var appSubmodules = [
-		'account',
-		'balance',
-		'billing',
-		'errorTracker',
-		'servicePlan',
-		'transactions',
-		'trunks',
-		'user'
-	];
-
-	require(_.map(appSubmodules, function(name) {
-		return './submodules/' + name + '/' + name;
-	}));
-
 	var app = {
-		name: 'myaccount',
-
-		subModules: appSubmodules,
-
-		css: [ 'app' ],
+		subModules: [
+			'ach',
+			'account',
+			'balance',
+			'billing',
+			'creditCard',
+			'errorTracker',
+			'servicePlan',
+			'transactions',
+			'trunks',
+			'user'
+		],
 
 		i18n: {
 			'de-DE': { customCss: false },
@@ -70,29 +62,11 @@ define(function(require) {
 					'name',
 					'full'
 				]
-			}
+			},
+			disableFirstUseWalkthrough: monster.config.whitelabel.disableFirstUseWalkthrough
 		},
 
 		mainContainer: '#myaccount',
-
-		load: function(callback) {
-			var self = this;
-
-			self.initApp(function() {
-				self.render();
-
-				callback && callback(self);
-			});
-		},
-
-		initApp: function(_callback) {
-			var self = this;
-
-			monster.pub('auth.initApp', {
-				app: self,
-				callback: _callback
-			});
-		},
 
 		onAppLoaderClosed: function onAppLoaderClosed() {
 			var self = this;
@@ -188,11 +162,7 @@ define(function(require) {
 					trunking: ['inbound', 'outbound'],
 					misc: ['errorTracker']
 				},
-				_callback = function(billing, uiRestrictions) {
-					if (_.isEmpty(billing)) {
-						uiRestrictions.billing.show_tab = false;
-					}
-
+				_callback = function(uiRestrictions) {
 					uiRestrictions.categories = {};
 
 					for (var i in categories) {
@@ -215,21 +185,7 @@ define(function(require) {
 
 			self._UIRestrictionsCompatibility({
 				restrictions: restrictions,
-				callback: function(uiRestrictions) {
-					self.callApi({
-						resource: 'billing.get',
-						data: {
-							accountId: self.accountId,
-							generateError: false
-						},
-						success: function(data, status) {
-							_callback(data.data, uiRestrictions);
-						},
-						error: function(data, status) {
-							_callback({}, uiRestrictions);
-						}
-					});
-				}
+				callback: _callback
 			});
 		},
 
@@ -304,6 +260,8 @@ define(function(require) {
 						self.updateWalkthroughFlagUser();
 					});
 				}
+
+				self.creditCardCheckStatus();
 			}
 		},
 
@@ -613,7 +571,8 @@ define(function(require) {
 		// if flag "showfirstUseWalkthrough" is not set to false, we need to show the walkthrough
 		hasToShowWalkthrough: function(callback) {
 			var self = this,
-				response = self.appFlags.showMyAccount && self.uiFlags.user.get('showfirstUseWalkthrough') !== false;
+				response = self.appFlags.showMyAccount && self.uiFlags.user.get('showfirstUseWalkthrough') !== false
+					&& self.appFlags.disableFirstUseWalkthrough !== true;
 
 			if (typeof callback === 'function') {
 				callback(response);
@@ -784,51 +743,12 @@ define(function(require) {
 			}
 		},
 
-		validateAccountAdministratorForm: function(formAccountAdministrator, callback) {
-			var self = this;
-
-			monster.ui.validate(formAccountAdministrator, {
-				rules: {
-					'contact.billing.name': {
-						required: true
-					},
-					'contact.billing.email': {
-						required: true,
-						email: true
-					},
-					'contact.billing.number': {
-						required: true
-					},
-					'contact.billing.street_address': {
-						required: true
-					},
-					'contact.billing.locality': {
-						required: true
-					},
-					'contact.billing.region': {
-						required: true
-					},
-					'contact.billing.country': {
-						required: true
-					},
-					'contact.billing.postal_code': {
-						required: true,
-						digits: true
-					}
-				}
-			});
-
-			if (monster.ui.valid(formAccountAdministrator)) {
-				callback && callback();
-			}
-		},
-
 		_myaccountEvents: function(args) {
 			var self = this,
 				data = args.data,
 				template = args.template,
 				closeContent = function() {
-					var liSettings = template.find('li.settings-item.open'),
+					var liSettings = template.find('li.settings-item.open:not(.always-open)'),
 						aSettings = liSettings.find('a.settings-link');
 
 					liSettings.find('.settings-item-content').slideUp('fast', function() {
@@ -839,34 +759,17 @@ define(function(require) {
 						liSettings.find('.edition').hide();
 					});
 				},
-				settingsValidate = function(fieldName, dataForm, callback) {
-					var formPassword = template.find('#form_password');
-					var formAccountAdministrator = template.find('#form_account_administrator');
-
-					// This is still ghetto, I didn't want to re-factor the whole code to tweak the validation
-					// If the field is password, we start custom validation
-
-					if (formPassword.length) {
-						self.validatePasswordForm(formPassword, callback);
-					// otherwise we don't have any validation for this field, we execute the callback
-					} else if (formAccountAdministrator.length) {
-						self.validateAccountAdministratorForm(formAccountAdministrator, callback);
-					} else {
-						callback && callback();
-					}
+				validateSettings = args.validateCallback || function(callback) {
+					callback(null);
 				};
 
-			template.find('.settings-link').on('click', function() {
+			template.find('.settings-item:not(.always-open) .settings-link').on('click', function() {
 				var isOpen = $(this).parent().hasClass('open');
 
 				closeContent();
 
 				if (!isOpen) {
 					var args = { link: $(this) };
-
-					if (data.hasOwnProperty('billing')) {
-						args.hasEmptyCreditCardInfo = _.isEmpty(data.billing.credit_cards);
-					}
 
 					self._openAccordionGroup(args);
 				}
@@ -890,44 +793,37 @@ define(function(require) {
 					moduleToUpdate = currentElement.data('module'),
 					fieldName = currentElement.data('field'),
 					newData = (function cleanFormData(moduleToUpdate, data) {
-						if (moduleToUpdate === 'billing') {
-							data.credit_card.expiration_date = data.extra.expiration_date.month + '/' + data.extra.expiration_date.year;
-						}
-
 						return data;
-					})(moduleToUpdate, monster.ui.getFormData('form_' + fieldName));
+					})(moduleToUpdate, monster.ui.getFormData('form_' + fieldName)),
+					updateSettings = _.bind(self.settingsUpdateData, self, moduleToUpdate, data[moduleToUpdate], newData);
 
-				settingsValidate(fieldName, newData,
-					function() {
-						self.settingsUpdateData(moduleToUpdate, data[moduleToUpdate], newData,
-							function(data) {
-								var args = {
-									callback: function(parent) {
-										if (fieldName === 'credit_card') {
-											parent.find('.edition').hide();
-											parent.find('.uneditable').show();
-										} else if (fieldName === 'colorblind') {
-											$('body').toggleClass('colorblind', data.data.ui_flags.colorblind);
-										}
+				currentElement.prop('disabled', true);
 
-										self.highlightField(parent, fieldName);
-
-										/* TODO USELESS? */
-										if (typeof callbackUpdate === 'function') {
-										}
-									}
-								};
-
-								monster.pub('myaccount.' + module + '.renderContent', args);
+				monster.waterfall([
+					validateSettings,
+					updateSettings
+				], function(_err, data) {
+					var args = {
+						callback: function(parent) {
+							if (fieldName === 'colorblind') {
+								$('body').toggleClass('colorblind', data.data.ui_flags.colorblind);
 							}
-						);
-					}
-				);
+
+							self.highlightField(parent, fieldName);
+						}
+					};
+
+					monster.pub('myaccount.' + module + '.renderContent', args);
+				});
 			});
 		},
 
 		highlightField: function(parent, fieldName) {
 			var	link = parent.find('li[data-name=' + fieldName + ']');
+
+			if (link.hasClass('always-open')) {
+				return;
+			}
 
 			link.find('.update').hide();
 			link
@@ -950,22 +846,15 @@ define(function(require) {
 		_openAccordionGroup: function(args) {
 			var self = this,
 				link = args.link,
-				settingsItem = link.parents('.settings-item'),
-				hasEmptyCreditCardInfo = args.hasEmptyCreditCardInfo === false ? false : true;
+				settingsItem = link.parents('.settings-item');
 
 			settingsItem.addClass('open');
 			link.find('.update .text').text(self.i18n.active().close);
 			link.find('.update i').removeClass('fa-cog').addClass('fa-times');
 			settingsItem.find('.settings-item-content').slideDown('fast');
-
-			/* If there is no credit-card data, we skip the step that just displays the creditcard info */
-			if (settingsItem.data('name') === 'credit_card' && hasEmptyCreditCardInfo) {
-				settingsItem.find('.uneditable').hide();
-				settingsItem.find('.edition').show();
-			}
 		},
 
-		settingsUpdateData: function(type, data, newData, callbackSuccess, callbackError) {
+		settingsUpdateData: function(type, data, newData, callback) {
 			var self = this,
 				params = {
 					accountId: self.accountId,
@@ -993,6 +882,16 @@ define(function(require) {
 					}
 				}
 			} else if (type === 'account') {
+				if (_.get(params.data, 'contact.billing.region_select')) {
+					delete params.data.contact.billing.region_select;
+				}
+
+				if (_.get(params.data, ['braintree', 'surcharge_accepted'], '') === '') {
+					_.unset(params.data, 'braintree');
+				} else {
+					params.data.braintree.surcharge_accepted = _.toInteger(params.data.braintree.surcharge_accepted);
+				}
+
 				// We have to do the cleaning here because the $.extend doesn't work as we expect with arrays...
 				if (newData.hasOwnProperty('ui_flags') && newData.ui_flags.hasOwnProperty('numbers_format')) {
 					if (newData.ui_flags.numbers_format !== 'international_with_exceptions') {
@@ -1031,15 +930,11 @@ define(function(require) {
 			self.callApi({
 				resource: type.concat('.update'),
 				data: params,
-				success: function(_data, status) {
-					if (typeof callbackSuccess === 'function') {
-						callbackSuccess(_data, status);
-					}
+				success: function(_data) {
+					callback && callback(null, _data);
 				},
-				error: function(_data, status) {
-					if (typeof callbackError === 'function') {
-						callbackError(_data, status);
-					}
+				error: function() {
+					callback && callback(true);
 				}
 			});
 		},

@@ -227,6 +227,11 @@ define(function(require) {
 		},
 
 		e911Format: function(data) {
+			if (_.isUndefined(data)) {
+				return;
+			}
+
+			data.full_street_address = _.get(data, 'legacy_data.house_number') + ' ' + _.get(data, 'street_address');
 			return _.merge({}, data, {
 				notification_contact_emails: _
 					.chain(data)
@@ -237,6 +242,13 @@ define(function(require) {
 		},
 
 		e911Normalize: function(data) {
+			var splitAddress = data.street_address.split(/\s/g);
+			data.caller_name = monster.apps.auth.currentAccount.name;
+			data.legacy_data = {
+				house_number: _.head(splitAddress)
+			};
+			data.street_address = splitAddress.slice(1).join(' ');
+
 			return _.merge({}, data, {
 				notification_contact_emails: _
 					.chain(data)
@@ -255,6 +267,7 @@ define(function(require) {
 
 			// The back-end doesn't let us set features anymore, they return the field based on the key set on that document.
 			delete data.features;
+			delete data.metadata;
 
 			self.callApi({
 				resource: 'numbers.update',
