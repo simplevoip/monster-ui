@@ -24,7 +24,7 @@ define({
 		hideNewAccountCreation: true,
 		hide_port: true,
 		brandColor: '#000000',
-		logoPath: 'https://portal.simplevoip.us:8443/v2/whitelabel/portal.simplevoip.us/logo',
+		logoPath: 'https://kazoo.simplevoip.us:8443/v2/whitelabel/portal.simplevoip.us/logo',
 		nav: {
 			help: 'http://simplevoip.editme.com/'
 		},
@@ -35,6 +35,6 @@ define({
 		e911_readonly: true
 	},
 	api: {
-		'default': 'https://sandbox.2600hz.com:8443/v2/'
+		'default': 'https://kazoo.simplevoip.us:8443/v2/'
 	}
 });
