@@ -1,7 +1,8 @@
 import { dirname, join } from 'upath';
+import { fileURLToPath } from 'node:url';
 import { env } from './helpers/helpers.js';
 
-const pathToThisFile = dirname(__filename);
+const pathToThisFile = dirname(fileURLToPath(import.meta.url));
 const root = dirname(pathToThisFile);
 const dist = join(root, 'dist');
 const distDev = join(root, 'distDev');

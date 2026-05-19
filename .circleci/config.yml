@@ -95,7 +95,6 @@ jobs:
           name: 'Install dependencies from package.json'
           command: |
             npm install
-            npm rebuild node-sass
       -
         run:
           name: 'Run a production build'
@@ -187,7 +186,6 @@ jobs:
           name: 'Install dependencies from package.json'
           command: |
             npm install
-            npm rebuild node-sass
       -
         run:
           name: 'Run a production build'
@@ -279,7 +277,6 @@ jobs:
           name: 'Install dependencies from package.json'
           command: |
             npm install
-            npm rebuild node-sass
       -
         run:
           name: 'Run a production build'

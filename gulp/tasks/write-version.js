@@ -1,8 +1,10 @@
 import { join } from 'upath';
 import gulp from 'gulp';
 import { writeFileSync } from 'fs';
-import { tmp } from '../paths';
-import { version } from '../../package.json';
+import { tmp } from '../paths.js';
+import pkg from '../../package.json' with { type: 'json' };
+
+const { version } = pkg;
 
 /**
  * Writes version file to display in monster

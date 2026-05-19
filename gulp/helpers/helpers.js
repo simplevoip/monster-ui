@@ -2,9 +2,9 @@ import { join } from 'upath';
 import fs from 'fs';
 import parser from 'yargs-parser';
 import { src } from '../paths.js';
-import nodeSass from 'node-sass';
+import * as dartSass from 'sass';
 import gulpSass from 'gulp-sass';
-import tildeImporter from 'node-sass-tilde-importer';
+import tildeImporter from 'sass-tilde-importer';
 
 const getAppsToExclude = () => ['demo_done', 'skeleton', 'tutorial'];
 
@@ -28,7 +28,7 @@ export const getProApps = () => ({
 		whole: env.pro && env.pro.length ? env.pro.split(',') : []
 	}[mode]);
 
-const compileSass = gulpSass(nodeSass);
+const compileSass = gulpSass(dartSass);
 
 export const sass = () => compileSass({
     importer: tildeImporter
